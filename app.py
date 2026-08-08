@@ -247,203 +247,407 @@ def scrape_gaaraas(nb_pages, progress_bar, status_text):
 init_db()
 
 # ─────────────────────────────────────────────
+# CSS — STYLE SOBRE ET PROFESSIONNEL
+# ─────────────────────────────────────────────
+st.markdown("""
+<style>
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0f1117;
+        border-right: 1px solid #1e2130;
+    }
+    .sidebar-title {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 24px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #1e2130;
+    }
+    .sidebar-stat {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+    .sidebar-stat span {
+        color: #e5e7eb;
+        font-weight: 600;
+    }
+    /* Titres de page */
+    .page-header {
+        margin-bottom: 8px;
+    }
+    .page-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #f3f4f6;
+        letter-spacing: -0.01em;
+    }
+    .page-sub {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 2px;
+    }
+    .divider {
+        border: none;
+        border-top: 1px solid #1e2130;
+        margin: 20px 0;
+    }
+    /* Metric cards */
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 20px 0;
+    }
+    .metric-card {
+        background: #161b27;
+        border: 1px solid #1e2130;
+        border-radius: 6px;
+        padding: 16px 20px;
+    }
+    .metric-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+    .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #f3f4f6;
+        line-height: 1;
+    }
+    .metric-value.ok { color: #10b981; font-size: 14px; font-weight: 600; margin-top: 4px; }
+    .metric-value.ko { color: #ef4444; font-size: 14px; font-weight: 600; margin-top: 4px; }
+    /* Section title */
+    .section-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin: 28px 0 12px 0;
+    }
+    /* Info table accueil */
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #1e2130;
+        font-size: 13px;
+    }
+    .info-label { color: #9ca3af; }
+    .info-val { color: #e5e7eb; font-weight: 500; }
+</style>
+""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
 # NAVIGATION
 # ─────────────────────────────────────────────
-st.sidebar.title("📊 Data Collection")
-st.sidebar.markdown("---")
-page = st.sidebar.radio(
-    "Navigation",
-    ["🏠 Accueil", "🔍 Scraping Live", "⬇️ Téléchargement CSV", "📈 Dashboard", "📋 Formulaires"]
-)
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"**Books en BDD :** {get_db_count('books')} lignes")
-st.sidebar.markdown(f"**Voitures en BDD :** {get_db_count('voitures')} lignes")
+st.sidebar.markdown('<div class="sidebar-title">Data Collection</div>', unsafe_allow_html=True)
+
+PAGES = ["Accueil", "Scraping Live", "Telechargement CSV", "Dashboard", "Formulaires"]
+page = st.sidebar.radio("", PAGES, label_visibility="collapsed")
+
+st.sidebar.markdown("<hr style='border-color:#1e2130;margin:20px 0'>", unsafe_allow_html=True)
+n_books = get_db_count('books')
+n_voitures = get_db_count('voitures')
+st.sidebar.markdown(f"""
+<div class="sidebar-stat">Books en base &nbsp;<span>{n_books}</span></div>
+<div class="sidebar-stat" style="margin-top:6px">Voitures en base &nbsp;<span>{n_voitures}</span></div>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # PAGE 1 — ACCUEIL
 # ─────────────────────────────────────────────
-if page == "🏠 Accueil":
-    st.title("📊 Projet Data Collection — Examen")
-    st.markdown("### Web scraping, nettoyage de données et visualisation")
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Books en BDD", get_db_count('books'))
-    with col2:
-        st.metric("Voitures en BDD", get_db_count('voitures'))
-    with col3:
-        books_raw_ok = os.path.exists(CSV_BOOKS_RAW)
-        st.metric("CSV Books brut", "✅ Présent" if books_raw_ok else "❌ Absent")
-    with col4:
-        gaaraas_raw_ok = os.path.exists(CSV_GAARAAS_RAW)
-        st.metric("CSV Gaaraas brut", "✅ Présent" if gaaraas_raw_ok else "❌ Absent")
-    st.markdown("---")
-    st.markdown("""
-    **Sources de données :**
-    - 📚 [Books to Scrape](https://books.toscrape.com) — 50 pages, 9 variables
-    - 🚗 [Gaaraas Dakar Auto](https://www.gaaraas.com/fr/users/dakar-auto) — 100 pages, 7 variables
+if page == "Accueil":
+    st.markdown('''
+    <div class="page-header">
+        <div class="page-title">Projet Data Collection</div>
+        <div class="page-sub">Master Intelligence Artificielle — DIT Dakar · Examen 2026</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    **Fonctionnalités :**
-    - 🔍 Scraping live via Selenium (choix du nombre de pages)
-    - ⬇️ Téléchargement des données brutes (Web Scraper no-code)
-    - 📈 Dashboard de visualisation des données nettoyées
-    - 📋 Accès aux formulaires d'évaluation (Kobo + Google Forms)
-    """)
+    books_raw_ok = os.path.exists(CSV_BOOKS_RAW)
+    gaaraas_raw_ok = os.path.exists(CSV_GAARAAS_RAW)
+
+    st.markdown('''<div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-label">Books en base</div>
+            <div class="metric-value">{}</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Voitures en base</div>
+            <div class="metric-value">{}</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">CSV Books brut</div>
+            <div class="metric-value {}">  {}</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">CSV Gaaraas brut</div>
+            <div class="metric-value {}">  {}</div>
+        </div>
+    </div>'''.format(
+        n_books, n_voitures,
+        "ok" if books_raw_ok else "ko", "Present" if books_raw_ok else "Absent",
+        "ok" if gaaraas_raw_ok else "ko", "Present" if gaaraas_raw_ok else "Absent"
+    ), unsafe_allow_html=True)
+
+    st.markdown('''<div class="section-title">Sources de donnees</div>''', unsafe_allow_html=True)
+    st.markdown('''
+    <div class="info-row"><span class="info-label">Books to Scrape</span><span class="info-val">50 pages · 9 variables · Selenium</span></div>
+    <div class="info-row"><span class="info-label">Gaaraas Dakar Auto</span><span class="info-val">100 pages · 7 variables · Selenium</span></div>
+    <div class="info-row"><span class="info-label">Outil no-code</span><span class="info-val">Web Scraper (extension Chrome)</span></div>
+    <div class="info-row"><span class="info-label">Stockage</span><span class="info-val">SQLite · 2 tables (books, voitures)</span></div>
+    ''', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # PAGE 2 — SCRAPING LIVE
 # ─────────────────────────────────────────────
-elif page == "🔍 Scraping Live":
-    st.title("🔍 Scraping Live")
-    st.markdown("Lance un scraping Selenium directement depuis l'application.")
-    st.markdown("---")
+elif page == "Scraping Live":
+    st.markdown('''
+    <div class="page-header">
+        <div class="page-title">Scraping Live</div>
+        <div class="page-sub">Collecte de donnees via Selenium — stockage automatique en SQLite</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
-    source = st.selectbox("Source à scraper", ["Books to Scrape", "Gaaraas"])
+    source = st.selectbox("Source", ["Books to Scrape", "Gaaraas"])
 
     if source == "Books to Scrape":
-        nb_pages = st.slider("Nombre de pages à scraper", min_value=1, max_value=50, value=5)
-        st.info(f"Environ {nb_pages * 20} livres seront collectés ({nb_pages} pages × 20 livres/page).")
-        if st.button("▶️ Lancer le scraping Books"):
+        nb_pages = st.slider("Nombre de pages", min_value=1, max_value=50, value=5)
+        st.caption(f"{nb_pages} page(s) · environ {nb_pages * 20} livres")
+        if st.button("Lancer le scraping"):
             progress_bar = st.progress(0)
             status_text = st.empty()
             with st.spinner("Scraping en cours..."):
                 n, err = scrape_books(nb_pages, progress_bar, status_text)
-            st.success(f"{n} livres insérés en base de données ({err} erreurs).")
+            st.success(f"{n} livres inseres en base ({err} erreurs).")
     else:
-        nb_pages = st.slider("Nombre de pages à scraper", min_value=1, max_value=100, value=5)
-        st.info(f"Environ {nb_pages * 15} annonces seront collectées.")
-        if st.button("▶️ Lancer le scraping Gaaraas"):
+        nb_pages = st.slider("Nombre de pages", min_value=1, max_value=100, value=5)
+        st.caption(f"{nb_pages} page(s) · environ {nb_pages * 15} annonces")
+        if st.button("Lancer le scraping"):
             progress_bar = st.progress(0)
             status_text = st.empty()
             with st.spinner("Scraping en cours..."):
                 n, err = scrape_gaaraas(nb_pages, progress_bar, status_text)
-            st.success(f"{n} annonces insérées en base de données ({err} erreurs).")
+            st.success(f"{n} annonces inserees en base ({err} erreurs).")
 
 # ─────────────────────────────────────────────
-# PAGE 3 — TÉLÉCHARGEMENT CSV BRUTS
+# PAGE 3 — TELECHARGEMENT CSV
 # ─────────────────────────────────────────────
-elif page == "⬇️ Téléchargement CSV":
-    st.title("⬇️ Téléchargement des données brutes")
-    st.markdown("Données collectées via **Web Scraper** (extension Chrome) — non nettoyées.")
-    st.markdown("---")
+elif page == "Telechargement CSV":
+    st.markdown('''
+    <div class="page-header">
+        <div class="page-title">Donnees brutes</div>
+        <div class="page-sub">Fichiers collectes via Web Scraper (extension Chrome) — non nettoyes</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("📚 Books to Scrape")
+        st.markdown('<div class="section-title">Books to Scrape</div>', unsafe_allow_html=True)
         if os.path.exists(CSV_BOOKS_RAW):
             with open(CSV_BOOKS_RAW, "rb") as f:
                 st.download_button(
-                    label="⬇️ Télécharger books-toscrape (brut)",
+                    label="Telecharger le CSV",
                     data=f,
                     file_name=CSV_BOOKS_RAW,
-                    mime="text/csv"
+                    mime="text/csv",
+                    use_container_width=True
                 )
             df_preview = pd.read_csv(CSV_BOOKS_RAW, nrows=5)
             st.dataframe(df_preview, use_container_width=True)
         else:
-            st.warning(f"Fichier `{CSV_BOOKS_RAW}` introuvable. Placez-le à la racine du projet.")
+            st.warning(f"Fichier introuvable : {CSV_BOOKS_RAW}")
 
     with col2:
-        st.subheader("🚗 Gaaraas")
+        st.markdown('<div class="section-title">Gaaraas</div>', unsafe_allow_html=True)
         if os.path.exists(CSV_GAARAAS_RAW):
             with open(CSV_GAARAAS_RAW, "rb") as f:
                 st.download_button(
-                    label="⬇️ Télécharger gaaraas (brut)",
+                    label="Telecharger le CSV",
                     data=f,
                     file_name=CSV_GAARAAS_RAW,
-                    mime="text/csv"
+                    mime="text/csv",
+                    use_container_width=True
                 )
             df_preview = pd.read_csv(CSV_GAARAAS_RAW, nrows=5)
             st.dataframe(df_preview, use_container_width=True)
         else:
-            st.warning(f"Fichier `{CSV_GAARAAS_RAW}` introuvable. Placez-le à la racine du projet.")
+            st.warning(f"Fichier introuvable : {CSV_GAARAAS_RAW}")
 
 # ─────────────────────────────────────────────
 # PAGE 4 — DASHBOARD
 # ─────────────────────────────────────────────
-elif page == "📈 Dashboard":
-    st.title("📈 Dashboard — Données nettoyées")
-    st.markdown("Données issues du scraping **Selenium**, stockées en SQLite.")
-    st.markdown("---")
+elif page == "Dashboard":
+    import plotly.express as px
 
-    tab1, tab2 = st.tabs(["📚 Books to Scrape", "🚗 Gaaraas"])
+    st.markdown('''
+    <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Donnees nettoyees issues du scraping Selenium · stockees en SQLite</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs(["Books to Scrape", "Gaaraas"])
 
     with tab1:
         df_books = load_table('books')
         if df_books.empty:
-            st.warning("Aucune donnée Books en base. Lancez d'abord un scraping.")
+            st.info("Aucune donnee en base. Lancez un scraping depuis la page Scraping Live.")
         else:
-            st.markdown(f"**{len(df_books)} livres en base de données**")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prix moyen", f"£{df_books['prix'].mean():.2f}")
-            col2.metric("Note moyenne", f"{df_books['note'].mean():.1f} / 5")
-            col3.metric("Catégories", df_books['categorie'].nunique())
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Livres", len(df_books))
+            col2.metric("Prix moyen", f"£{df_books['prix'].mean():.2f}")
+            col3.metric("Note moyenne", f"{df_books['note'].mean():.1f} / 5")
+            col4.metric("Categories", df_books['categorie'].nunique())
 
-            st.markdown("#### Répartition par catégorie (Top 10)")
-            cat_counts = df_books['categorie'].value_counts().head(10)
-            st.bar_chart(cat_counts)
+            st.markdown('<div class="section-title">Repartition par categorie</div>', unsafe_allow_html=True)
+            cat_counts = df_books['categorie'].value_counts().head(10).reset_index()
+            cat_counts.columns = ['Categorie', 'Nombre']
+            fig1 = px.bar(cat_counts, x='Nombre', y='Categorie', orientation='h',
+                         color_discrete_sequence=['#3b82f6'], height=320)
+            fig1.update_layout(
+                plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                xaxis=dict(gridcolor='#1e2130', showgrid=True),
+                yaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total ascending')
+            )
+            st.plotly_chart(fig1, use_container_width=True)
 
-            st.markdown("#### Distribution des notes")
-            note_counts = df_books['note'].value_counts().sort_index()
-            st.bar_chart(note_counts)
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown('<div class="section-title">Distribution des notes</div>', unsafe_allow_html=True)
+                note_counts = df_books['note'].value_counts().sort_index().reset_index()
+                note_counts.columns = ['Note', 'Nombre']
+                note_counts['Note'] = note_counts['Note'].astype(str)
+                fig2 = px.bar(note_counts, x='Note', y='Nombre',
+                             color_discrete_sequence=['#6366f1'], height=260)
+                fig2.update_layout(
+                    plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                    font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                    xaxis=dict(gridcolor='rgba(0,0,0,0)'),
+                    yaxis=dict(gridcolor='#1e2130')
+                )
+                st.plotly_chart(fig2, use_container_width=True)
 
-            st.markdown("#### Distribution des prix")
-            st.bar_chart(df_books['prix'].dropna().value_counts().sort_index())
+            with col_b:
+                st.markdown('<div class="section-title">Disponibilite</div>', unsafe_allow_html=True)
+                dispo = df_books['disponibilite'].value_counts().reset_index()
+                dispo.columns = ['Statut', 'Nombre']
+                fig3 = px.pie(dispo, names='Statut', values='Nombre',
+                             color_discrete_sequence=['#10b981', '#ef4444'], height=260,
+                             hole=0.45)
+                fig3.update_layout(
+                    plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                    font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                    legend=dict(bgcolor='rgba(0,0,0,0)')
+                )
+                st.plotly_chart(fig3, use_container_width=True)
 
-            st.markdown("#### Disponibilité")
-            dispo_counts = df_books['disponibilite'].value_counts()
-            st.bar_chart(dispo_counts)
-
-            st.markdown("#### Aperçu des données")
-            st.dataframe(df_books.head(50), use_container_width=True)
+            st.markdown('<div class="section-title">Apercu des donnees</div>', unsafe_allow_html=True)
+            st.dataframe(df_books.head(50), use_container_width=True, hide_index=True)
 
     with tab2:
         df_voitures = load_table('voitures')
         if df_voitures.empty:
-            st.warning("Aucune donnée Gaaraas en base. Lancez d'abord un scraping.")
+            st.info("Aucune donnee en base. Lancez un scraping depuis la page Scraping Live.")
         else:
-            st.markdown(f"**{len(df_voitures)} annonces en base de données**")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prix moyen (FCFA)", f"{df_voitures['prix'].mean():,.0f}")
-            col2.metric("Km moyen", f"{df_voitures['kilometrage'].mean():,.0f}")
-            col3.metric("Marques", df_voitures['marque'].nunique())
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Annonces", len(df_voitures))
+            col2.metric("Prix moyen (FCFA)", f"{df_voitures['prix'].mean():,.0f}")
+            col3.metric("Km moyen", f"{df_voitures['kilometrage'].mean():,.0f}")
+            col4.metric("Marques", df_voitures['marque'].nunique())
 
-            st.markdown("#### Top 10 des marques")
-            marque_counts = df_voitures['marque'].value_counts().head(10)
-            st.bar_chart(marque_counts)
+            st.markdown('<div class="section-title">Top 10 des marques</div>', unsafe_allow_html=True)
+            marque_counts = df_voitures['marque'].value_counts().head(10).reset_index()
+            marque_counts.columns = ['Marque', 'Nombre']
+            fig4 = px.bar(marque_counts, x='Nombre', y='Marque', orientation='h',
+                         color_discrete_sequence=['#3b82f6'], height=320)
+            fig4.update_layout(
+                plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                xaxis=dict(gridcolor='#1e2130'),
+                yaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total ascending')
+            )
+            st.plotly_chart(fig4, use_container_width=True)
 
-            st.markdown("#### Répartition par région")
-            region_counts = df_voitures['region'].value_counts().head(10)
-            st.bar_chart(region_counts)
+            col_c, col_d = st.columns(2)
+            with col_c:
+                st.markdown('<div class="section-title">Boite de vitesses</div>', unsafe_allow_html=True)
+                boite = df_voitures['boite_vitesses'].value_counts().reset_index()
+                boite.columns = ['Type', 'Nombre']
+                fig5 = px.pie(boite, names='Type', values='Nombre',
+                             color_discrete_sequence=['#3b82f6', '#6366f1', '#8b5cf6'],
+                             height=260, hole=0.45)
+                fig5.update_layout(
+                    plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                    font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                    legend=dict(bgcolor='rgba(0,0,0,0)')
+                )
+                st.plotly_chart(fig5, use_container_width=True)
 
-            st.markdown("#### Boîte de vitesses")
-            boite_counts = df_voitures['boite_vitesses'].value_counts()
-            st.bar_chart(boite_counts)
+            with col_d:
+                st.markdown('<div class="section-title">Repartition par region</div>', unsafe_allow_html=True)
+                region = df_voitures['region'].value_counts().head(8).reset_index()
+                region.columns = ['Region', 'Nombre']
+                fig6 = px.bar(region, x='Region', y='Nombre',
+                             color_discrete_sequence=['#6366f1'], height=260)
+                fig6.update_layout(
+                    plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                    font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                    xaxis=dict(gridcolor='rgba(0,0,0,0)'),
+                    yaxis=dict(gridcolor='#1e2130')
+                )
+                st.plotly_chart(fig6, use_container_width=True)
 
-            st.markdown("#### Distribution par année")
-            annee_counts = df_voitures['annee'].dropna().astype(int).value_counts().sort_index()
-            st.bar_chart(annee_counts)
+            st.markdown('<div class="section-title">Distribution par annee</div>', unsafe_allow_html=True)
+            annee = df_voitures['annee'].dropna().astype(int)
+            fig7 = px.histogram(annee, nbins=20, color_discrete_sequence=['#3b82f6'], height=260)
+            fig7.update_layout(
+                plot_bgcolor='#0f1117', paper_bgcolor='#0f1117',
+                font_color='#9ca3af', margin=dict(l=0, r=0, t=10, b=0),
+                xaxis=dict(gridcolor='rgba(0,0,0,0)'),
+                yaxis=dict(gridcolor='#1e2130'),
+                showlegend=False
+            )
+            st.plotly_chart(fig7, use_container_width=True)
 
-            st.markdown("#### Aperçu des données")
-            st.dataframe(df_voitures.head(50), use_container_width=True)
+            st.markdown('<div class="section-title">Apercu des donnees</div>', unsafe_allow_html=True)
+            st.dataframe(df_voitures.head(50), use_container_width=True, hide_index=True)
 
 # ─────────────────────────────────────────────
 # PAGE 5 — FORMULAIRES
 # ─────────────────────────────────────────────
-elif page == "📋 Formulaires":
-    st.title("📋 Formulaires d'évaluation")
-    st.markdown("Deux versions du formulaire d'évaluation de l'application.")
-    st.markdown("---")
+elif page == "Formulaires":
+    st.markdown('''
+    <div class="page-header">
+        <div class="page-title">Formulaires d'evaluation</div>
+        <div class="page-sub">Deux versions du formulaire — KoboToolbox et Google Forms</div>
+    </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🟠 KoboToolbox")
-        st.markdown("Formulaire d'évaluation hébergé sur KoboToolbox.")
+        st.markdown('<div class="section-title">KoboToolbox</div>', unsafe_allow_html=True)
+        st.caption("Formulaire d'evaluation heberge sur KoboToolbox.")
         st.link_button("Ouvrir le formulaire Kobo", KOBO_URL, use_container_width=True)
 
     with col2:
-        st.subheader("🔵 Google Forms")
-        st.markdown("Formulaire d'évaluation hébergé sur Google Forms.")
+        st.markdown('<div class="section-title">Google Forms</div>', unsafe_allow_html=True)
+        st.caption("Formulaire d'evaluation heberge sur Google Forms.")
         st.link_button("Ouvrir le formulaire Google Forms", GFORMS_URL, use_container_width=True)
