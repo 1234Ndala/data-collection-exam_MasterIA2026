@@ -1,448 +1,421 @@
+"""
+Application Streamlit — Projet Data Collection
+Sources : Books to Scrape + Gaaraas (annonces auto Dakar)
+"""
+
 import streamlit as st
 import pandas as pd
 import sqlite3
+import plotly.express as px
+import plotly.graph_objects as go
 import time
 import re
 import os
-import tempfile
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 
-# ─────────────────────────────────────────────
-# CONFIG
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
+# CONFIGURATION
+# ─────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Data Collection — Exam",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-DB_PATH = "data_collection.db"
-CSV_BOOKS_RAW = "books-toscrape-com-2026-08-06-3.csv"
-CSV_GAARAAS_RAW = "gaaraas-com-2026-08-07.csv"
+# ─────────────────────────────────────────────────────────────────
+# NAVIGATION SIDEBAR
+# ─────────────────────────────────────────────────────────────────
+st.sidebar.title("📊 Navigation")
+page = st.sidebar.radio(
+    "Aller à :",
+    [
+        "🏠 Accueil",
+        "🔍 Scraping Live",
+        "📥 Données brutes (Web Scraper)",
+        "📚 Dashboard Books to Scrape",
+        "🚗 Dashboard Gaaraas",
+        "📋 Formulaires d'évaluation"
+    ]
+)
 
-KOBO_URL = "https://kobo.lien-fictif.com/formulaire"       # À remplacer
-GFORMS_URL = "https://forms.google.com/lien-fictif"        # À remplacer
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Projet d'examen — Data Collection**")
+st.sidebar.markdown("Web scraping · Nettoyage · Streamlit")
 
-# ─────────────────────────────────────────────
-# BASE DE DONNÉES
-# ─────────────────────────────────────────────
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS books (
-            titre TEXT,
-            prix REAL,
-            disponibilite TEXT,
-            nb_produits_page INTEGER,
-            note INTEGER,
-            nb_reviews INTEGER,
-            description TEXT,
-            categorie TEXT,
-            tax REAL
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS voitures (
-            marque TEXT,
-            modele TEXT,
-            annee INTEGER,
-            prix REAL,
-            kilometrage INTEGER,
-            boite_vitesses TEXT,
-            region TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+# ─────────────────────────────────────────────────────────────────
+# FONCTIONS UTILITAIRES
+# ─────────────────────────────────────────────────────────────────
 
-def get_db_count(table):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        count = pd.read_sql_query(f"SELECT COUNT(*) as n FROM {table}", conn).iloc[0]['n']
-        conn.close()
-        return count
-    except:
-        return 0
-
-def load_table(table):
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
+def charger_books():
+    """Charger les données books depuis CSV ou BDD"""
+    if os.path.exists("books_cleaned.csv"):
+        return pd.read_csv("books_cleaned.csv")
+    elif os.path.exists("books_scrape.db"):
+        conn = sqlite3.connect("books_scrape.db")
+        df = pd.read_sql_query("SELECT * FROM books", conn)
         conn.close()
         return df
-    except:
-        return pd.DataFrame()
+    return pd.DataFrame()
 
-def insert_books(rows):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.executemany("INSERT INTO books VALUES (?,?,?,?,?,?,?,?,?)", rows)
-    conn.commit()
-    conn.close()
+def charger_gaaraas():
+    """Charger les données gaaraas depuis CSV ou BDD"""
+    if os.path.exists("gaaraas_cleaned.csv"):
+        return pd.read_csv("gaaraas_cleaned.csv")
+    elif os.path.exists("gaaraas.db"):
+        conn = sqlite3.connect("gaaraas.db")
+        df = pd.read_sql_query("SELECT * FROM voitures", conn)
+        conn.close()
+        return df
+    return pd.DataFrame()
 
-def insert_voitures(rows):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.executemany("INSERT INTO voitures VALUES (?,?,?,?,?,?,?)", rows)
-    conn.commit()
-    conn.close()
-
-# ─────────────────────────────────────────────
-# SELENIUM — DRIVER
-# ─────────────────────────────────────────────
-def get_driver():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=options)
-    return driver
-
-# ─────────────────────────────────────────────
-# NETTOYAGE — BOOKS
-# ─────────────────────────────────────────────
-note_map = {'One': 1, 'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5}
-
-def nettoyer_prix(v):
-    try: return float(re.sub(r'[^0-9.]', '', v))
-    except: return None
-
-def nettoyer_tax(v):
-    try: return float(re.sub(r'[^0-9.]', '', v))
-    except: return None
-
-def nettoyer_note(v):
-    for mot, n in note_map.items():
-        if mot in v: return n
-    return None
-
-def nettoyer_dispo(v):
-    if 'In stock' in v: return 'In stock'
-    if 'Out of stock' in v: return 'Out of stock'
-    return v.strip()
-
-# ─────────────────────────────────────────────
-# SCRAPING — BOOKS
-# ─────────────────────────────────────────────
-def scrape_books(nb_pages, progress_bar, status_text):
-    driver = get_driver()
-    book_urls = []
-    rows = []
-    nb_erreurs = 0
-
-    status_text.text("Collecte des URLs des livres...")
-    for page in range(1, nb_pages + 1):
-        url = f"https://books.toscrape.com/catalogue/page-{page}.html"
-        driver.get(url)
-        time.sleep(1)
-        livres = driver.find_elements(By.CSS_SELECTOR, 'article.product_pod h3 a')
-        for l in livres:
-            book_urls.append(l.get_attribute('href'))
-        progress_bar.progress(int(page / nb_pages * 40))
-
-    status_text.text(f"{len(book_urls)} livres trouvés. Scraping des détails...")
-    total = len(book_urls)
-
-    for idx, url in enumerate(book_urls):
-        try:
-            driver.get(url)
-            time.sleep(0.5)
-            titre = driver.find_element(By.CSS_SELECTOR, 'div.product_main h1').text
-            prix = nettoyer_prix(driver.find_element(By.CSS_SELECTOR, 'p.price_color').text)
-            dispo = nettoyer_dispo(driver.find_element(By.CSS_SELECTOR, 'p.availability').text)
-            note_el = driver.find_element(By.CSS_SELECTOR, 'p.star-rating')
-            note = nettoyer_note(note_el.get_attribute('class'))
-            lignes = driver.find_elements(By.CSS_SELECTOR, 'table.table tr')
-            table_data = {}
-            for ligne in lignes:
-                try:
-                    k = ligne.find_element(By.TAG_NAME, 'th').text.strip()
-                    v = ligne.find_element(By.TAG_NAME, 'td').text.strip()
-                    table_data[k] = v
-                except: pass
-            nb_reviews = int(table_data.get('Number of reviews', '0')) if table_data.get('Number of reviews', '0').isdigit() else 0
-            tax = nettoyer_tax(table_data.get('Tax', '£0.00'))
-            try: desc = driver.find_element(By.CSS_SELECTOR, 'article.product_page > p').text
-            except: desc = 'N/A'
-            try:
-                bc = driver.find_elements(By.CSS_SELECTOR, 'ul.breadcrumb li')
-                cat = bc[2].text.strip() if len(bc) >= 3 else 'N/A'
-            except: cat = 'N/A'
-            rows.append((titre, prix, dispo, 20, note, nb_reviews, desc, cat, tax))
-        except:
-            nb_erreurs += 1
-        progress_bar.progress(40 + int((idx + 1) / total * 55))
-        if (idx + 1) % 20 == 0:
-            status_text.text(f"{idx + 1}/{total} livres traités...")
-
-    driver.quit()
-    insert_books(rows)
-    progress_bar.progress(100)
-    status_text.text(f"Terminé — {len(rows)} livres insérés ({nb_erreurs} erreurs)")
-    return len(rows), nb_erreurs
-
-# ─────────────────────────────────────────────
-# SCRAPING — GAARAAS
-# ─────────────────────────────────────────────
-def scrape_gaaraas(nb_pages, progress_bar, status_text):
-    driver = get_driver()
-    rows = []
-    nb_erreurs = 0
-
-    for page in range(1, nb_pages + 1):
-        url = f"https://www.gaaraas.com/fr/users/dakar-auto?page={page}"
-        try:
-            driver.get(url)
-            time.sleep(2)
-            annonces = driver.find_elements(By.CSS_SELECTOR, 'div.ad-specification')
-            if len(annonces) == 0:
-                status_text.text(f"Page {page} vide — arrêt.")
-                break
-            for annonce in annonces:
-                try:
-                    titre_brut = annonce.find_element(By.CSS_SELECTOR, 'h4').text.strip()
-                    mots = titre_brut.split()
-                    annee = int(mots[0]) if mots and mots[0].isdigit() and len(mots[0]) == 4 else None
-                    marque = mots[1] if len(mots) > 1 else 'N/A'
-                    modele = ' '.join(mots[2:]) if len(mots) > 2 else 'N/A'
-                    try:
-                        region = annonce.find_element(By.CSS_SELECTOR, 'div.location').text.strip()
-                        region = re.sub(r'\s+', ' ', region).strip()
-                    except: region = 'N/A'
-                    try:
-                        prix_brut = annonce.find_element(By.CSS_SELECTOR, 'span.price').text
-                        prix = int(re.sub(r'[^0-9]', '', prix_brut))
-                    except: prix = None
-                    try:
-                        km_brut = annonce.find_element(By.CSS_SELECTOR, 'div.ad-vehicle-mileage div.value').text
-                        km = int(re.sub(r'[^0-9]', '', km_brut))
-                    except: km = None
-                    try:
-                        boite = annonce.find_element(By.CSS_SELECTOR, 'div.transmission span:last-child').text.strip()
-                    except: boite = 'N/A'
-                    rows.append((marque, modele, annee, prix, km, boite, region))
-                except: nb_erreurs += 1
-        except Exception as e:
-            status_text.text(f"Erreur page {page} : {e}")
-        progress_bar.progress(int(page / nb_pages * 95))
-        if page % 10 == 0:
-            status_text.text(f"Page {page}/{nb_pages} — {len(rows)} annonces collectées")
-
-    driver.quit()
-    insert_voitures(rows)
-    progress_bar.progress(100)
-    status_text.text(f"Terminé — {len(rows)} annonces insérées ({nb_erreurs} erreurs)")
-    return len(rows), nb_erreurs
-
-# ─────────────────────────────────────────────
-# INIT
-# ─────────────────────────────────────────────
-init_db()
-
-# ─────────────────────────────────────────────
-# NAVIGATION
-# ─────────────────────────────────────────────
-st.sidebar.title("📊 Data Collection")
-st.sidebar.markdown("---")
-page = st.sidebar.radio(
-    "Navigation",
-    ["🏠 Accueil", "🔍 Scraping Live", "⬇️ Téléchargement CSV", "📈 Dashboard", "📋 Formulaires"]
-)
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"**Books en BDD :** {get_db_count('books')} lignes")
-st.sidebar.markdown(f"**Voitures en BDD :** {get_db_count('voitures')} lignes")
-
-# ─────────────────────────────────────────────
-# PAGE 1 — ACCUEIL
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
+# PAGE : ACCUEIL
+# ─────────────────────────────────────────────────────────────────
 if page == "🏠 Accueil":
     st.title("📊 Projet Data Collection — Examen")
-    st.markdown("### Web scraping, nettoyage de données et visualisation")
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Books en BDD", get_db_count('books'))
-    with col2:
-        st.metric("Voitures en BDD", get_db_count('voitures'))
-    with col3:
-        books_raw_ok = os.path.exists(CSV_BOOKS_RAW)
-        st.metric("CSV Books brut", "✅ Présent" if books_raw_ok else "❌ Absent")
-    with col4:
-        gaaraas_raw_ok = os.path.exists(CSV_GAARAAS_RAW)
-        st.metric("CSV Gaaraas brut", "✅ Présent" if gaaraas_raw_ok else "❌ Absent")
-    st.markdown("---")
     st.markdown("""
-    **Sources de données :**
-    - 📚 [Books to Scrape](https://books.toscrape.com) — 50 pages, 9 variables
-    - 🚗 [Gaaraas Dakar Auto](https://www.gaaraas.com/fr/users/dakar-auto) — 100 pages, 7 variables
-
-    **Fonctionnalités :**
-    - 🔍 Scraping live via Selenium (choix du nombre de pages)
-    - ⬇️ Téléchargement des données brutes (Web Scraper no-code)
-    - 📈 Dashboard de visualisation des données nettoyées
-    - 📋 Accès aux formulaires d'évaluation (Kobo + Google Forms)
+    Cette application permet de :
+    - **Scraper** des données en live via Selenium
+    - **Télécharger** les données brutes issues du scraping no-code (Web Scraper)
+    - **Visualiser** les données nettoyées sous forme de dashboards
+    - **Accéder** aux formulaires d'évaluation (Kobo et Google Forms)
     """)
 
-# ─────────────────────────────────────────────
-# PAGE 2 — SCRAPING LIVE
-# ─────────────────────────────────────────────
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("**Source 1 — Books to Scrape**\n\nhttps://books.toscrape.com\n\n50 pages · 9 variables")
+    with col2:
+        st.info("**Source 2 — Gaaraas**\n\nhttps://www.gaaraas.com\n\n100 pages · 7 variables")
+
+    st.markdown("---")
+    df_books = charger_books()
+    df_gaaraas = charger_gaaraas()
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("📚 Livres collectés", len(df_books) if not df_books.empty else "—")
+    c2.metric("🚗 Annonces collectées", len(df_gaaraas) if not df_gaaraas.empty else "—")
+    c3.metric("📄 Pages Books", "50")
+    c4.metric("📄 Pages Gaaraas", "100")
+
+# ─────────────────────────────────────────────────────────────────
+# PAGE : SCRAPING LIVE
+# ─────────────────────────────────────────────────────────────────
 elif page == "🔍 Scraping Live":
     st.title("🔍 Scraping Live")
-    st.markdown("Lance un scraping Selenium directement depuis l'application.")
-    st.markdown("---")
+    st.markdown("Lancer un scraping Selenium directement depuis l'application.")
 
-    source = st.selectbox("Source à scraper", ["Books to Scrape", "Gaaraas"])
+    source = st.selectbox("Choisir la source :", ["Books to Scrape", "Gaaraas"])
 
     if source == "Books to Scrape":
-        nb_pages = st.slider("Nombre de pages à scraper", min_value=1, max_value=50, value=5)
-        st.info(f"Environ {nb_pages * 20} livres seront collectés ({nb_pages} pages × 20 livres/page).")
-        if st.button("▶️ Lancer le scraping Books"):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            with st.spinner("Scraping en cours..."):
-                n, err = scrape_books(nb_pages, progress_bar, status_text)
-            st.success(f"{n} livres insérés en base de données ({err} erreurs).")
+        nb_pages = st.slider("Nombre de pages à scraper :", 1, 50, 5)
+        st.caption("⏱️ Estimation : ~2 min pour 5 pages (une page détail par livre)")
     else:
-        nb_pages = st.slider("Nombre de pages à scraper", min_value=1, max_value=100, value=5)
-        st.info(f"Environ {nb_pages * 15} annonces seront collectées.")
-        if st.button("▶️ Lancer le scraping Gaaraas"):
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            with st.spinner("Scraping en cours..."):
-                n, err = scrape_gaaraas(nb_pages, progress_bar, status_text)
-            st.success(f"{n} annonces insérées en base de données ({err} erreurs).")
+        nb_pages = st.slider("Nombre de pages à scraper :", 1, 100, 10)
+        st.caption("⏱️ Estimation : ~30 sec pour 10 pages")
 
-# ─────────────────────────────────────────────
-# PAGE 3 — TÉLÉCHARGEMENT CSV BRUTS
-# ─────────────────────────────────────────────
-elif page == "⬇️ Téléchargement CSV":
-    st.title("⬇️ Téléchargement des données brutes")
-    st.markdown("Données collectées via **Web Scraper** (extension Chrome) — non nettoyées.")
+    if st.button("🚀 Lancer le scraping", type="primary"):
+        try:
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            import google_colab_selenium as gs
+
+            st.info("Lancement du navigateur...")
+            driver = gs.Chrome()
+            results = []
+            progress = st.progress(0)
+            status = st.empty()
+
+            if source == "Books to Scrape":
+                # Collecter les URLs
+                book_urls = []
+                for page_num in range(1, nb_pages + 1):
+                    url = f'https://books.toscrape.com/catalogue/page-{page_num}.html'
+                    driver.get(url)
+                    time.sleep(1)
+                    livres = driver.find_elements(By.CSS_SELECTOR, 'article.product_pod h3 a')
+                    book_urls.extend([l.get_attribute('href') for l in livres])
+                    progress.progress(int((page_num / nb_pages) * 50))
+
+                # Scraper les détails
+                note_map = {'One': 1, 'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5}
+                for idx, url in enumerate(book_urls):
+                    try:
+                        driver.get(url)
+                        time.sleep(0.5)
+                        titre = driver.find_element(By.CSS_SELECTOR, 'div.product_main h1').text
+                        prix_brut = driver.find_element(By.CSS_SELECTOR, 'p.price_color').text
+                        prix = float(re.sub(r'[^0-9.]', '', prix_brut))
+                        dispo = driver.find_element(By.CSS_SELECTOR, 'p.availability').text.strip()
+                        note_cls = driver.find_element(By.CSS_SELECTOR, 'p.star-rating').get_attribute('class')
+                        note = next((v for k, v in note_map.items() if k in note_cls), None)
+                        breadcrumb = driver.find_elements(By.CSS_SELECTOR, 'ul.breadcrumb li')
+                        categorie = breadcrumb[2].text.strip() if len(breadcrumb) >= 3 else 'N/A'
+                        results.append({'titre': titre, 'prix': prix, 'disponibilite': dispo,
+                                        'note': note, 'categorie': categorie})
+                    except:
+                        pass
+                    progress.progress(50 + int((idx / len(book_urls)) * 50))
+                    status.text(f"{idx + 1}/{len(book_urls)} livres traités")
+
+            else:  # Gaaraas
+                for page_num in range(1, nb_pages + 1):
+                    url = f'https://www.gaaraas.com/fr/users/dakar-auto?page={page_num}'
+                    driver.get(url)
+                    time.sleep(2)
+                    containers = driver.find_elements(By.CSS_SELECTOR,
+                        'div.vehicle-card, article.listing, div[class*="car"]')
+                    for container in containers:
+                        try:
+                            titre = container.find_element(By.CSS_SELECTOR, 'h2, h3, [class*="title"]').text
+                            prix_brut = container.find_element(By.CSS_SELECTOR, '[class*="price"], [class*="prix"]').text
+                            prix = int(re.sub(r'[^0-9]', '', prix_brut)) if prix_brut else None
+                            mots = titre.split()
+                            results.append({'marque': mots[0] if mots else 'N/A',
+                                            'modele': ' '.join(mots[1:3]) if len(mots) > 1 else 'N/A',
+                                            'prix': prix})
+                        except:
+                            pass
+                    progress.progress(int((page_num / nb_pages) * 100))
+                    status.text(f"Page {page_num}/{nb_pages}")
+
+            driver.quit()
+            df_live = pd.DataFrame(results)
+            st.success(f"✅ {len(df_live)} enregistrements collectés !")
+            st.dataframe(df_live, use_container_width=True)
+
+            csv = df_live.to_csv(index=False).encode('utf-8-sig')
+            st.download_button("📥 Télécharger les données", csv,
+                               f"scraping_live_{source.lower().replace(' ', '_')}.csv",
+                               "text/csv")
+
+        except ImportError:
+            st.error("⚠️ Selenium n'est pas disponible dans cet environnement. "
+                     "Lancez les notebooks sur Google Colab.")
+
+# ─────────────────────────────────────────────────────────────────
+# PAGE : DONNÉES BRUTES WEB SCRAPER
+# ─────────────────────────────────────────────────────────────────
+elif page == "📥 Données brutes (Web Scraper)":
+    st.title("📥 Données brutes — Web Scraper (no-code)")
+    st.markdown("""
+    Cette section permet de télécharger ou d'explorer les données brutes collectées via 
+    l'extension Chrome **Web Scraper** (sans nettoyage).
+    """)
+
+    source_brute = st.radio("Source :", ["Books to Scrape", "Gaaraas"])
+    uploaded = st.file_uploader(
+        f"Importer le fichier CSV brut ({source_brute}) exporté depuis Web Scraper :",
+        type=["csv"]
+    )
+
+    if uploaded is not None:
+        df_brut = pd.read_csv(uploaded)
+        st.success(f"✅ Fichier chargé : {df_brut.shape[0]} lignes · {df_brut.shape[1]} colonnes")
+        st.dataframe(df_brut, use_container_width=True)
+
+        st.markdown("### Aperçu des données brutes")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Types de colonnes :**")
+            st.write(df_brut.dtypes.astype(str))
+        with col2:
+            st.write("**Valeurs manquantes :**")
+            st.write(df_brut.isnull().sum())
+
+        csv_out = df_brut.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("📥 Télécharger les données brutes", csv_out,
+                           f"brut_{source_brute.lower().replace(' ', '_')}.csv", "text/csv")
+    else:
+        st.info("👆 Importez votre fichier CSV exporté depuis l'extension Web Scraper.")
+
+# ─────────────────────────────────────────────────────────────────
+# PAGE : DASHBOARD BOOKS
+# ─────────────────────────────────────────────────────────────────
+elif page == "📚 Dashboard Books to Scrape":
+    st.title("📚 Dashboard — Books to Scrape")
+
+    df = charger_books()
+
+    if df.empty:
+        st.warning("⚠️ Aucune donnée disponible. Lancez d'abord le notebook de scraping.")
+        st.stop()
+
+    # KPIs
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total livres", len(df))
+    col2.metric("Prix moyen (£)", f"{df['prix'].mean():.2f}" if 'prix' in df else "—")
+    col3.metric("Note moyenne", f"{df['note'].mean():.1f}/5" if 'note' in df else "—")
+    col4.metric("Catégories", df['categorie'].nunique() if 'categorie' in df else "—")
+
     st.markdown("---")
 
-    col1, col2 = st.columns(2)
+    # Filtres
+    st.sidebar.markdown("### Filtres Books")
+    if 'categorie' in df.columns:
+        cats = ['Toutes'] + sorted(df['categorie'].dropna().unique().tolist())
+        cat_sel = st.sidebar.selectbox("Catégorie :", cats)
+        if cat_sel != 'Toutes':
+            df = df[df['categorie'] == cat_sel]
 
-    with col1:
-        st.subheader("📚 Books to Scrape")
-        if os.path.exists(CSV_BOOKS_RAW):
-            with open(CSV_BOOKS_RAW, "rb") as f:
-                st.download_button(
-                    label="⬇️ Télécharger books-toscrape (brut)",
-                    data=f,
-                    file_name=CSV_BOOKS_RAW,
-                    mime="text/csv"
-                )
-            df_preview = pd.read_csv(CSV_BOOKS_RAW, nrows=5)
-            st.dataframe(df_preview, use_container_width=True)
-        else:
-            st.warning(f"Fichier `{CSV_BOOKS_RAW}` introuvable. Placez-le à la racine du projet.")
+    if 'prix' in df.columns:
+        prix_min, prix_max = float(df['prix'].min()), float(df['prix'].max())
+        prix_range = st.sidebar.slider("Plage de prix (£) :", prix_min, prix_max, (prix_min, prix_max))
+        df = df[(df['prix'] >= prix_range[0]) & (df['prix'] <= prix_range[1])]
 
-    with col2:
-        st.subheader("🚗 Gaaraas")
-        if os.path.exists(CSV_GAARAAS_RAW):
-            with open(CSV_GAARAAS_RAW, "rb") as f:
-                st.download_button(
-                    label="⬇️ Télécharger gaaraas (brut)",
-                    data=f,
-                    file_name=CSV_GAARAAS_RAW,
-                    mime="text/csv"
-                )
-            df_preview = pd.read_csv(CSV_GAARAAS_RAW, nrows=5)
-            st.dataframe(df_preview, use_container_width=True)
-        else:
-            st.warning(f"Fichier `{CSV_GAARAAS_RAW}` introuvable. Placez-le à la racine du projet.")
+    # Graphiques
+    col_a, col_b = st.columns(2)
 
-# ─────────────────────────────────────────────
-# PAGE 4 — DASHBOARD
-# ─────────────────────────────────────────────
-elif page == "📈 Dashboard":
-    st.title("📈 Dashboard — Données nettoyées")
-    st.markdown("Données issues du scraping **Selenium**, stockées en SQLite.")
+    with col_a:
+        st.subheader("Répartition des notes")
+        if 'note' in df.columns:
+            fig = px.histogram(df, x='note', nbins=5, color_discrete_sequence=['#3498db'],
+                               labels={'note': 'Note (étoiles)', 'count': 'Nombre de livres'})
+            fig.update_layout(bargap=0.1)
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_b:
+        st.subheader("Distribution des prix")
+        if 'prix' in df.columns:
+            fig = px.box(df, y='prix', color_discrete_sequence=['#e74c3c'],
+                         labels={'prix': 'Prix (£)'})
+            st.plotly_chart(fig, use_container_width=True)
+
+    col_c, col_d = st.columns(2)
+
+    with col_c:
+        st.subheader("Top 10 catégories")
+        if 'categorie' in df.columns:
+            top_cats = df['categorie'].value_counts().head(10).reset_index()
+            top_cats.columns = ['Catégorie', 'Nombre']
+            fig = px.bar(top_cats, x='Nombre', y='Catégorie', orientation='h',
+                         color_discrete_sequence=['#2ecc71'])
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_d:
+        st.subheader("Prix moyen par catégorie (Top 10)")
+        if 'prix' in df.columns and 'categorie' in df.columns:
+            prix_cat = df.groupby('categorie')['prix'].mean().sort_values(ascending=False).head(10).reset_index()
+            prix_cat.columns = ['Catégorie', 'Prix moyen (£)']
+            fig = px.bar(prix_cat, x='Prix moyen (£)', y='Catégorie', orientation='h',
+                         color_discrete_sequence=['#9b59b6'])
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Données complètes")
+    st.dataframe(df, use_container_width=True)
+    csv = df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button("📥 Télécharger les données nettoyées", csv, "books_cleaned.csv", "text/csv")
+
+# ─────────────────────────────────────────────────────────────────
+# PAGE : DASHBOARD GAARAAS
+# ─────────────────────────────────────────────────────────────────
+elif page == "🚗 Dashboard Gaaraas":
+    st.title("🚗 Dashboard — Gaaraas (Annonces auto Dakar)")
+
+    df = charger_gaaraas()
+
+    if df.empty:
+        st.warning("⚠️ Aucune donnée disponible. Lancez d'abord le notebook de scraping.")
+        st.stop()
+
+    # KPIs
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total annonces", len(df))
+    col2.metric("Prix moyen (FCFA)", f"{df['prix'].mean():,.0f}" if 'prix' in df else "—")
+    col3.metric("Km moyen", f"{df['kilometrage'].mean():,.0f}" if 'kilometrage' in df else "—")
+    col4.metric("Marques", df['marque'].nunique() if 'marque' in df else "—")
+
     st.markdown("---")
 
-    tab1, tab2 = st.tabs(["📚 Books to Scrape", "🚗 Gaaraas"])
+    # Filtres
+    st.sidebar.markdown("### Filtres Gaaraas")
+    if 'marque' in df.columns:
+        marques = ['Toutes'] + sorted(df['marque'].dropna().unique().tolist())
+        marque_sel = st.sidebar.selectbox("Marque :", marques)
+        if marque_sel != 'Toutes':
+            df = df[df['marque'] == marque_sel]
 
-    with tab1:
-        df_books = load_table('books')
-        if df_books.empty:
-            st.warning("Aucune donnée Books en base. Lancez d'abord un scraping.")
-        else:
-            st.markdown(f"**{len(df_books)} livres en base de données**")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prix moyen", f"£{df_books['prix'].mean():.2f}")
-            col2.metric("Note moyenne", f"{df_books['note'].mean():.1f} / 5")
-            col3.metric("Catégories", df_books['categorie'].nunique())
+    if 'boite_vitesses' in df.columns:
+        boites = ['Toutes'] + df['boite_vitesses'].dropna().unique().tolist()
+        boite_sel = st.sidebar.selectbox("Boîte de vitesses :", boites)
+        if boite_sel != 'Toutes':
+            df = df[df['boite_vitesses'] == boite_sel]
 
-            st.markdown("#### Répartition par catégorie (Top 10)")
-            cat_counts = df_books['categorie'].value_counts().head(10)
-            st.bar_chart(cat_counts)
+    # Graphiques
+    col_a, col_b = st.columns(2)
 
-            st.markdown("#### Distribution des notes")
-            note_counts = df_books['note'].value_counts().sort_index()
-            st.bar_chart(note_counts)
+    with col_a:
+        st.subheader("Top 10 marques les plus annoncées")
+        if 'marque' in df.columns:
+            top_marques = df['marque'].value_counts().head(10).reset_index()
+            top_marques.columns = ['Marque', 'Nombre']
+            fig = px.bar(top_marques, x='Nombre', y='Marque', orientation='h',
+                         color_discrete_sequence=['#e67e22'])
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+            st.plotly_chart(fig, use_container_width=True)
 
-            st.markdown("#### Distribution des prix")
-            st.bar_chart(df_books['prix'].dropna().value_counts().sort_index())
+    with col_b:
+        st.subheader("Répartition par boîte de vitesses")
+        if 'boite_vitesses' in df.columns:
+            boite_counts = df['boite_vitesses'].value_counts().reset_index()
+            boite_counts.columns = ['Boîte', 'Nombre']
+            fig = px.pie(boite_counts, values='Nombre', names='Boîte',
+                         color_discrete_sequence=px.colors.qualitative.Set2)
+            st.plotly_chart(fig, use_container_width=True)
 
-            st.markdown("#### Disponibilité")
-            dispo_counts = df_books['disponibilite'].value_counts()
-            st.bar_chart(dispo_counts)
+    col_c, col_d = st.columns(2)
 
-            st.markdown("#### Aperçu des données")
-            st.dataframe(df_books.head(50), use_container_width=True)
+    with col_c:
+        st.subheader("Distribution des prix")
+        if 'prix' in df.columns:
+            df_prix = df[df['prix'].notna() & (df['prix'] > 0)]
+            fig = px.histogram(df_prix, x='prix', nbins=30,
+                               color_discrete_sequence=['#1abc9c'],
+                               labels={'prix': 'Prix (FCFA)'})
+            st.plotly_chart(fig, use_container_width=True)
 
-    with tab2:
-        df_voitures = load_table('voitures')
-        if df_voitures.empty:
-            st.warning("Aucune donnée Gaaraas en base. Lancez d'abord un scraping.")
-        else:
-            st.markdown(f"**{len(df_voitures)} annonces en base de données**")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Prix moyen (FCFA)", f"{df_voitures['prix'].mean():,.0f}")
-            col2.metric("Km moyen", f"{df_voitures['kilometrage'].mean():,.0f}")
-            col3.metric("Marques", df_voitures['marque'].nunique())
+    with col_d:
+        st.subheader("Année vs Prix")
+        if 'annee' in df.columns and 'prix' in df.columns:
+            df_scatter = df[df['annee'].notna() & df['prix'].notna()]
+            fig = px.scatter(df_scatter, x='annee', y='prix',
+                             color='marque' if 'marque' in df.columns else None,
+                             labels={'annee': 'Année', 'prix': 'Prix (FCFA)'},
+                             opacity=0.6)
+            st.plotly_chart(fig, use_container_width=True)
 
-            st.markdown("#### Top 10 des marques")
-            marque_counts = df_voitures['marque'].value_counts().head(10)
-            st.bar_chart(marque_counts)
+    st.markdown("---")
+    st.subheader("Données complètes")
+    st.dataframe(df, use_container_width=True)
+    csv = df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button("📥 Télécharger les données nettoyées", csv, "gaaraas_cleaned.csv", "text/csv")
 
-            st.markdown("#### Répartition par région")
-            region_counts = df_voitures['region'].value_counts().head(10)
-            st.bar_chart(region_counts)
-
-            st.markdown("#### Boîte de vitesses")
-            boite_counts = df_voitures['boite_vitesses'].value_counts()
-            st.bar_chart(boite_counts)
-
-            st.markdown("#### Distribution par année")
-            annee_counts = df_voitures['annee'].dropna().astype(int).value_counts().sort_index()
-            st.bar_chart(annee_counts)
-
-            st.markdown("#### Aperçu des données")
-            st.dataframe(df_voitures.head(50), use_container_width=True)
-
-# ─────────────────────────────────────────────
-# PAGE 5 — FORMULAIRES
-# ─────────────────────────────────────────────
-elif page == "📋 Formulaires":
+# ─────────────────────────────────────────────────────────────────
+# PAGE : FORMULAIRES D'ÉVALUATION
+# ─────────────────────────────────────────────────────────────────
+elif page == "📋 Formulaires d'évaluation":
     st.title("📋 Formulaires d'évaluation")
-    st.markdown("Deux versions du formulaire d'évaluation de l'application.")
-    st.markdown("---")
+    st.markdown("Évaluez l'application via l'un des deux formulaires ci-dessous.")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🟠 KoboToolbox")
-        st.markdown("Formulaire d'évaluation hébergé sur KoboToolbox.")
+        st.markdown("### 📝 Formulaire KoboToolbox")
+        st.markdown("""
+        Collecte structurée via KoboToolbox.
+        """)
+        KOBO_URL = "https://ee.kobotoolbox.org/x/VOTRE_CLE_KOBO"  # À remplacer
         st.link_button("Ouvrir le formulaire Kobo", KOBO_URL, use_container_width=True)
 
     with col2:
-        st.subheader("🔵 Google Forms")
-        st.markdown("Formulaire d'évaluation hébergé sur Google Forms.")
-        st.link_button("Ouvrir le formulaire Google Forms", GFORMS_URL, use_container_width=True)
+        st.markdown("### 📝 Formulaire Google Forms")
+        st.markdown("""
+        Collecte structurée via Google Forms.
+        """)
+        GFORMS_URL = "https://forms.gle/VOTRE_CLE_GFORMS"  # À remplacer
+        st.link_button("Ouvrir le formulaire Google", GFORMS_URL, use_container_width=True)
+
+    st.markdown("---")
+    st.info("💡 Remplacez les URLs ci-dessus par vos liens réels une fois vos formulaires créés.")
