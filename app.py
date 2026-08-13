@@ -23,7 +23,7 @@ DB_PATH = "data_collection.db"
 CSV_BOOKS_RAW = "books-toscrape-com-2026-08-06-3.csv"
 CSV_GAARAAS_RAW = "gaaraas-com-2026-08-07.csv"
 
-KOBO_URL = "https://kobo.lien-fictif.com/formulaire"       # À remplacer
+KOBO_URL = "https://ee.kobotoolbox.org/x/Xir2zltq"       # À remplacer
 GFORMS_URL = "https://forms.google.com/lien-fictif"        # À remplacer
 
 # ─────────────────────────────────────────────
