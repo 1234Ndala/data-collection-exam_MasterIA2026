@@ -813,14 +813,14 @@ with tab_forms:
         st.markdown("""
         <div class="form-card">
             <div class="form-card-title">📋 KoboToolbox</div>
-            <div class="form-card-desc">Formulaire d'évaluation hébergé sur KoboToolbox. Fonctionne hors ligne, idéal pour la collecte terrain. Les réponses sont centralisées en temps réel.</div>
+            <div class="form-card-desc">Partagez votre expérience sur l'application via ce formulaire. Vos retours nous aident à améliorer le projet.</div>
         </div>""", unsafe_allow_html=True)
         st.link_button("Ouvrir KoboToolbox →", KOBO_URL, use_container_width=True)
     with col2:
         st.markdown("""
         <div class="form-card">
             <div class="form-card-title">📝 Google Forms</div>
-            <div class="form-card-desc">Formulaire d'évaluation hébergé sur Google Forms. Accessible partout, les réponses sont automatiquement collectées dans Google Sheets.</div>
+            <div class="form-card-desc">Une alternative via Google Forms pour soumettre votre évaluation.</div>
         </div>""", unsafe_allow_html=True)
         st.link_button("Ouvrir Google Forms →", GFORMS_URL, use_container_width=True)
 
