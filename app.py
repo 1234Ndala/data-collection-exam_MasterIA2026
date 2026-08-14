@@ -170,7 +170,10 @@ html, body, [class*="css"] {
 }
 
 /* Fond gris clair général */
-.stApp { background: #eef2f7; }
+.stApp { background: #eef2f7 !important; }
+.main { background: #eef2f7 !important; }
+section[data-testid="stAppViewContainer"] { background: #eef2f7 !important; }
+section[data-testid="stMain"] { background: #eef2f7 !important; }
 
 /* ── Sidebar navy ── */
 [data-testid="stSidebar"] {
