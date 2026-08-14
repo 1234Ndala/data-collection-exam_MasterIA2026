@@ -487,7 +487,7 @@ GRIS  = '#dde4ee'
 # ════════════════════════════════════════════
 # ACCUEIL
 # ════════════════════════════════════════════
-if page == "Accueil":
+with tab_accueil:
     books_ok   = os.path.exists(CSV_BOOKS_RAW)
     gaaraas_ok = os.path.exists(CSV_GAARAAS_RAW)
 
@@ -532,7 +532,7 @@ if page == "Accueil":
 # ════════════════════════════════════════════
 # SCRAPING LIVE
 # ════════════════════════════════════════════
-elif page == "Scraping Live":
+with tab_scraping:
     st.markdown('<div class="page-body">', unsafe_allow_html=True)
     st.markdown('<div class="section-head">Scraping Live</div>', unsafe_allow_html=True)
     st.markdown('<div class="scrape-panel"><div class="scrape-panel-title">Lancer une collecte</div>', unsafe_allow_html=True)
@@ -560,7 +560,7 @@ elif page == "Scraping Live":
 # ════════════════════════════════════════════
 # TÉLÉCHARGEMENT CSV
 # ════════════════════════════════════════════
-elif page == "Téléchargement CSV":
+with tab_csv:
     st.markdown('<div class="page-body">', unsafe_allow_html=True)
     st.markdown('<div class="section-head">Données brutes — Web Scraper Chrome</div>', unsafe_allow_html=True)
 
@@ -590,7 +590,7 @@ elif page == "Téléchargement CSV":
 # ════════════════════════════════════════════
 # DASHBOARD
 # ════════════════════════════════════════════
-elif page == "Dashboard":
+with tab_dashboard:
     import plotly.express as px
 
     st.markdown('<div class="page-body">', unsafe_allow_html=True)
@@ -801,7 +801,7 @@ elif page == "Dashboard":
 # ════════════════════════════════════════════
 # FORMULAIRES
 # ════════════════════════════════════════════
-elif page == "Formulaires":
+with tab_forms:
     st.markdown('<div class="page-body">', unsafe_allow_html=True)
     st.markdown('<div class="section-head">Formulaires d\'évaluation</div>', unsafe_allow_html=True)
 
