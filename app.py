@@ -8,9 +8,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 
-# ─────────────────────────────────────────────
-# CONFIG
-# ─────────────────────────────────────────────
 st.set_page_config(
     page_title="Data Collection — Exam",
     page_icon="📊",
@@ -23,9 +20,7 @@ CSV_GAARAAS_RAW = "gaaraas-com-2026-08-07.csv"
 KOBO_URL        = "https://ee.kobotoolbox.org/x/Xir2zltq"
 GFORMS_URL      = "https://docs.google.com/forms/d/e/1FAIpQLSdbbp5jmSU-WZ-WO4nfWmdZa6evxXOt3xNqP8kQBcB7HVdcLQ/viewform"
 
-# ─────────────────────────────────────────────
-# DB
-# ─────────────────────────────────────────────
+# ── DB ──────────────────────────────────────
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -61,18 +56,14 @@ def insert_voitures(rows):
     conn.cursor().executemany("INSERT INTO voitures VALUES (?,?,?,?,?,?,?)", rows)
     conn.commit(); conn.close()
 
-# ─────────────────────────────────────────────
-# SELENIUM
-# ─────────────────────────────────────────────
+# ── SELENIUM ────────────────────────────────
 def get_driver():
     options = Options()
     for a in ["--headless","--no-sandbox","--disable-dev-shm-usage","--disable-gpu","--window-size=1920,1080"]:
         options.add_argument(a)
     return webdriver.Chrome(options=options)
 
-# ─────────────────────────────────────────────
-# NETTOYAGE
-# ─────────────────────────────────────────────
+# ── NETTOYAGE ───────────────────────────────
 note_map = {'One':1,'Two':2,'Three':3,'Four':4,'Five':5}
 def nettoyer_prix(v):
     try: return float(re.sub(r'[^0-9.]','',v))
@@ -89,9 +80,7 @@ def nettoyer_dispo(v):
     if 'Out of stock' in v: return 'Out of stock'
     return v.strip()
 
-# ─────────────────────────────────────────────
-# SCRAPING — BOOKS
-# ─────────────────────────────────────────────
+# ── SCRAPING BOOKS ───────────────────────────
 def scrape_books(nb_pages, progress_bar, status_text):
     driver = get_driver()
     book_urls, rows = [], []
@@ -136,9 +125,7 @@ def scrape_books(nb_pages, progress_bar, status_text):
     status_text.text(f"Terminé — {len(rows)} livres insérés ({nb_erreurs} erreurs)")
     return len(rows), nb_erreurs
 
-# ─────────────────────────────────────────────
-# SCRAPING — GAARAAS
-# ─────────────────────────────────────────────
+# ── SCRAPING GAARAAS ─────────────────────────
 def scrape_gaaraas(nb_pages, progress_bar, status_text):
     driver = get_driver()
     rows = []; nb_erreurs = 0
@@ -172,387 +159,285 @@ def scrape_gaaraas(nb_pages, progress_bar, status_text):
     status_text.text(f"Terminé — {len(rows)} annonces insérées ({nb_erreurs} erreurs)")
     return len(rows), nb_erreurs
 
-# ─────────────────────────────────────────────
-# INIT
-# ─────────────────────────────────────────────
+# ── INIT ────────────────────────────────────
 init_db()
 n_books    = get_db_count('books')
 n_voitures = get_db_count('voitures')
 
-# ─────────────────────────────────────────────
-# CSS — STYLE BI TOPBAR, SIDEBAR CACHÉE, ONGLETS LARGES
-# ─────────────────────────────────────────────
+# ── CSS ─────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Manrope:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
-*, html, body, [class*="css"] {
-    font-family: 'Manrope', sans-serif;
+html, body, [class*="css"], .stApp {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
-/* Cache sidebar entièrement */
-[data-testid="stSidebar"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
+.stApp { background: #0d1117; }
 
-/* Fond général anthracite chaud */
-.stApp { background: #18181b; }
-
-/* Topbar */
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #09090b;
-    border-bottom: 1px solid #27272a;
-    padding: 0 40px;
-    height: 56px;
-    position: sticky;
-    top: 0;
-    z-index: 999;
-    margin: -1rem -1rem 0 -1rem;
+[data-testid="stSidebar"] {
+    background: #0d1117;
+    border-right: 1px solid #21262d;
 }
-.topbar-logo {
-    font-family: 'Syne', sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    color: #fafafa;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-.topbar-center {
-    display: flex;
-    gap: 2px;
-}
-.topbar-pill {
-    font-size: 12px;
-    font-weight: 600;
-    color: #71717a;
-    padding: 6px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    letter-spacing: 0.01em;
-    transition: all 0.15s;
-}
-.topbar-pill.active {
-    background: #27272a;
-    color: #fafafa;
-}
-.topbar-right {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-}
-.topbar-chip {
-    font-size: 11px;
-    font-weight: 600;
-    color: #52525b;
-    letter-spacing: 0.06em;
-}
-.topbar-chip b { color: #a1a1aa; font-weight: 700; }
-
-/* Zone contenu */
-.content { padding: 36px 40px 0 40px; margin: 0 -1rem; }
-
-/* Hero accueil */
-.hero {
-    padding: 48px 0 40px 0;
-    border-bottom: 1px solid #27272a;
-    margin-bottom: 40px;
-}
-.hero-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #a78bfa;
-    margin-bottom: 14px;
-}
-.hero-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 48px;
-    font-weight: 800;
-    color: #fafafa;
-    line-height: 1.05;
-    letter-spacing: -0.02em;
-    margin-bottom: 12px;
-}
-.hero-sub {
-    font-size: 15px;
-    color: #52525b;
+[data-testid="stSidebar"] * { color: #8b949e !important; }
+[data-testid="stSidebar"] .stRadio label {
+    font-size: 13px;
     font-weight: 500;
+    padding: 7px 10px;
+    border-radius: 6px;
+    margin-bottom: 2px;
+    display: block;
+    color: #8b949e !important;
+    transition: background 0.15s;
 }
+[data-testid="stSidebar"] .stRadio label:hover { background: #161b22; }
 
-/* Stats row accueil */
-.stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1px;
-    background: #27272a;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 48px;
+.sb-logo {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f0f6fc !important;
+    letter-spacing: 0.01em;
+    margin-bottom: 4px;
 }
-.stat-cell {
-    background: #09090b;
-    padding: 24px 28px;
-}
-.stat-cell-label {
+.sb-meta {
     font-size: 11px;
+    color: #484f58 !important;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #21262d;
+}
+.sb-stat {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+}
+.sb-stat-label {
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #52525b;
-    margin-bottom: 12px;
+    color: #484f58 !important;
+    margin-bottom: 4px;
 }
-.stat-cell-num {
-    font-family: 'Syne', sans-serif;
-    font-size: 40px;
+.sb-stat-val {
+    font-size: 24px;
     font-weight: 700;
-    color: #fafafa;
+    color: #f0f6fc !important;
+}
+
+/* Page header */
+.ph {
+    margin: 8px 0 28px 0;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #21262d;
+}
+.ph-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #f0f6fc;
+    letter-spacing: -0.01em;
+}
+.ph-desc {
+    font-size: 13px;
+    color: #484f58;
+    margin-top: 3px;
+}
+
+/* KPI cards */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+}
+.kpi {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 18px 20px;
+}
+.kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #484f58;
+    margin-bottom: 10px;
+}
+.kpi-val {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f0f6fc;
     line-height: 1;
 }
-.stat-cell-sub {
-    font-size: 12px;
-    color: #52525b;
-    margin-top: 6px;
-}
-.stat-cell-num.present { font-size: 16px; color: #4ade80; margin-top: 4px; }
-.stat-cell-num.absent  { font-size: 16px; color: #f87171; margin-top: 4px; }
+.kpi-val.ok  { font-size: 13px; color: #3fb950; margin-top:6px; font-weight:600; }
+.kpi-val.ko  { font-size: 13px; color: #f85149; margin-top:6px; font-weight:600; }
+.kpi-hint    { font-size: 11px; color: #484f58; margin-top:4px; }
 
-/* Tableau sources */
-.src-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #52525b;
-    margin-bottom: 16px;
-}
-.src-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 0;
-    border-bottom: 1px solid #27272a;
-    font-size: 14px;
-}
-.src-row:last-child { border-bottom: none; }
-.src-k { color: #a1a1aa; font-weight: 500; }
-.src-v {
-    font-size: 12px;
-    font-weight: 600;
-    color: #a78bfa;
-    letter-spacing: 0.02em;
-}
-
-/* Page titre générique */
-.page-hero {
-    padding: 36px 0 32px 0;
-    border-bottom: 1px solid #27272a;
-    margin-bottom: 32px;
-}
-.page-hero-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #a78bfa;
-    margin-bottom: 8px;
-}
-.page-hero-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 32px;
-    font-weight: 800;
-    color: #fafafa;
-    letter-spacing: -0.02em;
-}
-.page-hero-desc {
-    font-size: 13px;
-    color: #52525b;
-    margin-top: 4px;
-}
-
-/* Scraping */
-.scrape-panel {
-    background: #09090b;
-    border: 1px solid #27272a;
-    border-radius: 12px;
-    padding: 32px;
-    max-width: 500px;
-}
-
-/* Section label dashboard */
-.dash-label {
+/* Section label */
+.slabel {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #52525b;
-    margin: 32px 0 14px 0;
+    letter-spacing: 0.1em;
+    color: #484f58;
+    margin: 28px 0 12px 0;
+}
+
+/* Info rows */
+.irow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #21262d;
+    font-size: 13px;
+}
+.irow:last-child { border-bottom:none; }
+.irow-k { color: #8b949e; font-weight:500; }
+.irow-v {
+    font-size: 12px;
+    font-weight: 600;
+    color: #58a6ff;
+    background: #1c2128;
+    padding: 3px 10px;
+    border-radius: 5px;
+    border: 1px solid #21262d;
+}
+
+/* Scraping panel */
+.scrape-panel {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 28px;
+    max-width: 520px;
 }
 
 /* Formulaires */
-.form-block {
-    background: #09090b;
-    border: 1px solid #27272a;
-    border-radius: 12px;
-    padding: 32px;
+.form-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 28px;
+    height: 100%;
 }
-.form-block-num {
-    font-family: 'Syne', sans-serif;
-    font-size: 48px;
-    font-weight: 800;
-    color: #27272a;
-    line-height: 1;
-    margin-bottom: 16px;
-}
-.form-block-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 20px;
+.form-card-title {
+    font-size: 16px;
     font-weight: 700;
-    color: #fafafa;
+    color: #f0f6fc;
     margin-bottom: 8px;
 }
-.form-block-desc {
+.form-card-desc {
     font-size: 13px;
-    color: #52525b;
-    line-height: 1.7;
-    margin-bottom: 24px;
+    color: #8b949e;
+    line-height: 1.65;
+    margin-bottom: 22px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# NAVIGATION — query param
-# ─────────────────────────────────────────────
-if "page" not in st.session_state:
-    st.session_state.page = "Accueil"
+# ── SIDEBAR ──────────────────────────────────
+st.sidebar.markdown(f'<div class="sb-logo">Data Collection</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sb-meta">Master IA · DIT Dakar · Examen 2026</div>', unsafe_allow_html=True)
 
-PAGES = ["Accueil", "Scraping Live", "Données brutes", "Dashboard", "Formulaires"]
+PAGES = ["Accueil", "Scraping Live", "Téléchargement CSV", "Dashboard", "Formulaires"]
+page  = st.sidebar.radio("", PAGES, label_visibility="collapsed")
 
-# Topbar
-pills_html = ""
-for p in PAGES:
-    cls = "topbar-pill active" if st.session_state.page == p else "topbar-pill"
-    pills_html += f'<span class="{cls}">{p}</span>'
-
-st.markdown(f"""
-<div class="topbar">
-    <div class="topbar-logo">Data Collection</div>
-    <div class="topbar-center">{pills_html}</div>
-    <div class="topbar-right">
-        <span class="topbar-chip">Books &nbsp;<b>{n_books:,}</b></span>
-        <span class="topbar-chip">Voitures &nbsp;<b>{n_voitures:,}</b></span>
-    </div>
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown(f"""
+<div class="sb-stat">
+    <div class="sb-stat-label">Books en base</div>
+    <div class="sb-stat-val">{n_books:,}</div>
+</div>
+<div class="sb-stat">
+    <div class="sb-stat-label">Voitures en base</div>
+    <div class="sb-stat-val">{n_voitures:,}</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Boutons de nav invisibles sous la topbar
-nav_cols = st.columns(len(PAGES))
-for i, p in enumerate(PAGES):
-    with nav_cols[i]:
-        if st.button(p, key=f"nav_{p}", use_container_width=True):
-            st.session_state.page = p
-            st.rerun()
-
-page = st.session_state.page
-
-st.markdown('<div class="content">', unsafe_allow_html=True)
-
-# ─────────────────────────────────────────────
-# ACCUEIL
-# ─────────────────────────────────────────────
+# ── ACCUEIL ──────────────────────────────────
 if page == "Accueil":
     books_ok   = os.path.exists(CSV_BOOKS_RAW)
     gaaraas_ok = os.path.exists(CSV_GAARAAS_RAW)
 
     st.markdown("""
-    <div class="hero">
-        <div class="hero-label">Master IA · DIT Dakar · Examen 2026</div>
-        <div class="hero-title">Projet<br>Data Collection</div>
-        <div class="hero-sub">Web scraping · Nettoyage · Visualisation · Formulaires</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="ph">
+        <div class="ph-title">Projet Data Collection</div>
+        <div class="ph-desc">Master Intelligence Artificielle — DIT Dakar · Examen 2026</div>
+    </div>""", unsafe_allow_html=True)
 
     st.markdown(f"""
-    <div class="stats-row">
-        <div class="stat-cell">
-            <div class="stat-cell-label">Books en base</div>
-            <div class="stat-cell-num">{n_books:,}</div>
-            <div class="stat-cell-sub">books.toscrape.com</div>
+    <div class="kpi-grid">
+        <div class="kpi">
+            <div class="kpi-label">Books en base</div>
+            <div class="kpi-val">{n_books:,}</div>
+            <div class="kpi-hint">books.toscrape.com</div>
         </div>
-        <div class="stat-cell">
-            <div class="stat-cell-label">Voitures en base</div>
-            <div class="stat-cell-num">{n_voitures:,}</div>
-            <div class="stat-cell-sub">gaaraas.com</div>
+        <div class="kpi">
+            <div class="kpi-label">Voitures en base</div>
+            <div class="kpi-val">{n_voitures:,}</div>
+            <div class="kpi-hint">gaaraas.com</div>
         </div>
-        <div class="stat-cell">
-            <div class="stat-cell-label">CSV Books brut</div>
-            <div class="stat-cell-num {'present' if books_ok else 'absent'}">{'✓ Présent' if books_ok else '✗ Absent'}</div>
+        <div class="kpi">
+            <div class="kpi-label">CSV Books</div>
+            <div class="kpi-val ok">{'✓ Présent' if books_ok else '✗ Absent'}</div>
         </div>
-        <div class="stat-cell">
-            <div class="stat-cell-label">CSV Gaaraas brut</div>
-            <div class="stat-cell-num {'present' if gaaraas_ok else 'absent'}">{'✓ Présent' if gaaraas_ok else '✗ Absent'}</div>
+        <div class="kpi">
+            <div class="kpi-label">CSV Gaaraas</div>
+            <div class="kpi-val {'ok' if gaaraas_ok else 'ko'}">{'✓ Présent' if gaaraas_ok else '✗ Absent'}</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
-    st.markdown('<div class="src-title">Sources</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">Sources de données</div>', unsafe_allow_html=True)
     st.markdown("""
-    <div class="src-row"><span class="src-k">Books to Scrape</span><span class="src-v">50 pages · 9 variables · Selenium</span></div>
-    <div class="src-row"><span class="src-k">Gaaraas Dakar Auto</span><span class="src-v">100 pages · 7 variables · Selenium</span></div>
-    <div class="src-row"><span class="src-k">Outil no-code</span><span class="src-v">Web Scraper (extension Chrome)</span></div>
-    <div class="src-row"><span class="src-k">Stockage</span><span class="src-v">SQLite · 2 tables (books, voitures)</span></div>
+    <div class="irow"><span class="irow-k">Books to Scrape</span><span class="irow-v">50 pages · 9 variables · Selenium</span></div>
+    <div class="irow"><span class="irow-k">Gaaraas Dakar Auto</span><span class="irow-v">100 pages · 7 variables · Selenium</span></div>
+    <div class="irow"><span class="irow-k">Outil no-code</span><span class="irow-v">Web Scraper (Chrome)</span></div>
+    <div class="irow"><span class="irow-k">Stockage</span><span class="irow-v">SQLite · 2 tables</span></div>
     """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# SCRAPING LIVE
-# ─────────────────────────────────────────────
+# ── SCRAPING LIVE ─────────────────────────────
 elif page == "Scraping Live":
     st.markdown("""
-    <div class="page-hero">
-        <div class="page-hero-label">Collecte</div>
-        <div class="page-hero-title">Scraping Live</div>
-        <div class="page-hero-desc">Selenium · stockage automatique en SQLite</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="ph">
+        <div class="ph-title">Scraping Live</div>
+        <div class="ph-desc">Collecte via Selenium · stockage automatique en SQLite</div>
+    </div>""", unsafe_allow_html=True)
 
     st.markdown('<div class="scrape-panel">', unsafe_allow_html=True)
-    source = st.selectbox("Source", ["Books to Scrape", "Gaaraas"])
+    source = st.selectbox("Source à scraper", ["Books to Scrape", "Gaaraas"])
     if source == "Books to Scrape":
-        nb_pages = st.slider("Pages", 1, 50, 5)
+        nb_pages = st.slider("Nombre de pages", 1, 50, 5)
         st.caption(f"~{nb_pages*20} livres estimés")
         if st.button("Lancer le scraping", type="primary"):
             pb = st.progress(0); txt = st.empty()
-            with st.spinner("En cours..."):
+            with st.spinner("Scraping en cours..."):
                 n, err = scrape_books(nb_pages, pb, txt)
             st.success(f"{n} livres insérés ({err} erreurs).")
     else:
-        nb_pages = st.slider("Pages", 1, 100, 5)
+        nb_pages = st.slider("Nombre de pages", 1, 100, 5)
         st.caption(f"~{nb_pages*15} annonces estimées")
         if st.button("Lancer le scraping", type="primary"):
             pb = st.progress(0); txt = st.empty()
-            with st.spinner("En cours..."):
+            with st.spinner("Scraping en cours..."):
                 n, err = scrape_gaaraas(nb_pages, pb, txt)
             st.success(f"{n} annonces insérées ({err} erreurs).")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# DONNÉES BRUTES
-# ─────────────────────────────────────────────
-elif page == "Données brutes":
+# ── TÉLÉCHARGEMENT CSV ────────────────────────
+elif page == "Téléchargement CSV":
     st.markdown("""
-    <div class="page-hero">
-        <div class="page-hero-label">Export</div>
-        <div class="page-hero-title">Données brutes</div>
-        <div class="page-hero-desc">Fichiers collectés via Web Scraper — non nettoyés</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="ph">
+        <div class="ph-title">Données brutes</div>
+        <div class="ph-desc">Fichiers collectés via Web Scraper — non nettoyés</div>
+    </div>""", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2, gap="large")
     with col1:
-        st.markdown('<div class="dash-label">Books to Scrape</div>', unsafe_allow_html=True)
+        st.markdown('<div class="slabel">Books to Scrape</div>', unsafe_allow_html=True)
         if os.path.exists(CSV_BOOKS_RAW):
             with open(CSV_BOOKS_RAW,"rb") as f:
                 st.download_button("Télécharger le CSV", f, CSV_BOOKS_RAW, "text/csv", use_container_width=True)
@@ -560,7 +445,7 @@ elif page == "Données brutes":
         else:
             st.warning(f"Fichier introuvable : `{CSV_BOOKS_RAW}`")
     with col2:
-        st.markdown('<div class="dash-label">Gaaraas</div>', unsafe_allow_html=True)
+        st.markdown('<div class="slabel">Gaaraas</div>', unsafe_allow_html=True)
         if os.path.exists(CSV_GAARAAS_RAW):
             with open(CSV_GAARAAS_RAW,"rb") as f:
                 st.download_button("Télécharger le CSV", f, CSV_GAARAAS_RAW, "text/csv", use_container_width=True)
@@ -568,30 +453,30 @@ elif page == "Données brutes":
         else:
             st.warning(f"Fichier introuvable : `{CSV_GAARAAS_RAW}`")
 
-# ─────────────────────────────────────────────
-# DASHBOARD
-# ─────────────────────────────────────────────
+# ── DASHBOARD ─────────────────────────────────
 elif page == "Dashboard":
     import plotly.express as px
 
-    BG   = '#18181b'
-    CARD = '#09090b'
-    GRID = '#27272a'
-    FC   = '#71717a'
+    BG   = '#0d1117'
+    CARD = '#161b22'
+    GRID = '#21262d'
+    FC   = '#8b949e'
+    C1   = '#58a6ff'
+    C2   = '#3fb950'
+    C3   = '#f78166'
+    C4   = '#d2a8ff'
 
     def pl(h=300):
         return dict(plot_bgcolor=CARD, paper_bgcolor=BG,
                     font_color=FC, height=h,
                     margin=dict(l=0,r=0,t=20,b=0),
-                    font=dict(family='Manrope'))
+                    font=dict(family='Plus Jakarta Sans'))
 
     st.markdown("""
-    <div class="page-hero">
-        <div class="page-hero-label">Analyse</div>
-        <div class="page-hero-title">Dashboard</div>
-        <div class="page-hero-desc">Données nettoyées · SQLite</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="ph">
+        <div class="ph-title">Dashboard</div>
+        <div class="ph-desc">Données nettoyées · SQLite</div>
+    </div>""", unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs(["📚  Books to Scrape", "🚗  Gaaraas"])
 
@@ -600,149 +485,169 @@ elif page == "Dashboard":
         if df_b.empty:
             st.info("Aucune donnée. Lancez un scraping d'abord.")
         else:
-            # KPIs en ligne pleine largeur
+            # ── Filtres ──────────────────────────────
+            st.markdown('<div class="slabel">Filtres</div>', unsafe_allow_html=True)
+            f1, f2, f3 = st.columns(3)
+            with f1:
+                cats = ["Toutes"] + sorted(df_b['categorie'].dropna().unique().tolist())
+                cat_sel = st.selectbox("Catégorie", cats)
+            with f2:
+                notes = ["Toutes"] + sorted(df_b['note'].dropna().unique().astype(int).tolist())
+                note_sel = st.selectbox("Note", notes)
+            with f3:
+                dispo_opts = ["Toutes"] + df_b['disponibilite'].dropna().unique().tolist()
+                dispo_sel = st.selectbox("Disponibilité", dispo_opts)
+
+            df_f = df_b.copy()
+            if cat_sel   != "Toutes": df_f = df_f[df_f['categorie']    == cat_sel]
+            if note_sel  != "Toutes": df_f = df_f[df_f['note']         == int(note_sel)]
+            if dispo_sel != "Toutes": df_f = df_f[df_f['disponibilite']== dispo_sel]
+
+            st.markdown('<div class="slabel">Indicateurs</div>', unsafe_allow_html=True)
             k1,k2,k3,k4 = st.columns(4)
-            k1.metric("Livres", f"{len(df_b):,}")
-            k2.metric("Prix moyen", f"£{df_b['prix'].mean():.2f}")
-            k3.metric("Note moyenne", f"{df_b['note'].mean():.1f}/5")
-            k4.metric("Catégories", df_b['categorie'].nunique())
+            k1.metric("Livres", f"{len(df_f):,}")
+            k2.metric("Prix moyen", f"£{df_f['prix'].mean():.2f}" if not df_f.empty else "—")
+            k3.metric("Note moyenne", f"{df_f['note'].mean():.1f}/5" if not df_f.empty else "—")
+            k4.metric("Catégories", df_f['categorie'].nunique())
 
-            # Chart pleine largeur
-            st.markdown('<div class="dash-label">Répartition par catégorie — Top 10</div>', unsafe_allow_html=True)
-            cc = df_b['categorie'].value_counts().head(10).reset_index()
-            cc.columns=['Catégorie','Nombre']
-            fig1 = px.bar(cc, x='Catégorie', y='Nombre', color_discrete_sequence=['#a78bfa'])
-            fig1.update_layout(**pl(280),
-                xaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total descending'),
-                yaxis=dict(gridcolor=GRID))
-            st.plotly_chart(fig1, use_container_width=True)
+            if df_f.empty:
+                st.warning("Aucun résultat pour ces filtres.")
+            else:
+                st.markdown('<div class="slabel">Top 10 catégories</div>', unsafe_allow_html=True)
+                cc = df_f['categorie'].value_counts().head(10).reset_index()
+                cc.columns=['Catégorie','Nombre']
+                fig1 = px.bar(cc, x='Nombre', y='Catégorie', orientation='h',
+                              color_discrete_sequence=[C1])
+                fig1.update_layout(**pl(300),
+                    xaxis=dict(gridcolor=GRID),
+                    yaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total ascending'))
+                st.plotly_chart(fig1, use_container_width=True)
 
-            # 3 colonnes asymétriques : grand | petit | petit
-            ca, cb, cc2 = st.columns([2,1,1])
-            with ca:
-                st.markdown('<div class="dash-label">Prix — scatter note vs prix</div>', unsafe_allow_html=True)
-                fig_s = px.scatter(df_b, x='note', y='prix', opacity=0.5,
-                                   color_discrete_sequence=['#a78bfa'])
-                fig_s.update_layout(**pl(280),
-                    xaxis=dict(gridcolor=GRID, title='Note'),
-                    yaxis=dict(gridcolor=GRID, title='Prix (£)'))
-                st.plotly_chart(fig_s, use_container_width=True)
-            with cb:
-                st.markdown('<div class="dash-label">Notes</div>', unsafe_allow_html=True)
-                nc = df_b['note'].value_counts().sort_index().reset_index()
-                nc.columns=['Note','N']; nc['Note']=nc['Note'].astype(str)
-                fig2 = px.bar(nc, x='Note', y='N', color_discrete_sequence=['#f472b6'])
-                fig2.update_layout(**pl(280),
-                    xaxis=dict(gridcolor='rgba(0,0,0,0)'),
-                    yaxis=dict(gridcolor=GRID))
-                st.plotly_chart(fig2, use_container_width=True)
-            with cc2:
-                st.markdown('<div class="dash-label">Dispo</div>', unsafe_allow_html=True)
-                dp = df_b['disponibilite'].value_counts().reset_index()
-                dp.columns=['Statut','N']
-                fig3 = px.pie(dp, names='Statut', values='N', hole=0.6,
-                              color_discrete_sequence=['#a78bfa','#f472b6'])
-                fig3.update_layout(**pl(280), legend=dict(bgcolor='rgba(0,0,0,0)',orientation='h',y=-0.1))
-                st.plotly_chart(fig3, use_container_width=True)
+                ca, cb = st.columns(2)
+                with ca:
+                    st.markdown('<div class="slabel">Distribution des notes</div>', unsafe_allow_html=True)
+                    nc = df_f['note'].value_counts().sort_index().reset_index()
+                    nc.columns=['Note','Nombre']; nc['Note']=nc['Note'].astype(str)
+                    fig2 = px.bar(nc, x='Note', y='Nombre', color_discrete_sequence=[C4])
+                    fig2.update_layout(**pl(260),
+                        xaxis=dict(gridcolor='rgba(0,0,0,0)'),
+                        yaxis=dict(gridcolor=GRID))
+                    st.plotly_chart(fig2, use_container_width=True)
+                with cb:
+                    st.markdown('<div class="slabel">Disponibilité</div>', unsafe_allow_html=True)
+                    dp = df_f['disponibilite'].value_counts().reset_index()
+                    dp.columns=['Statut','Nombre']
+                    fig3 = px.pie(dp, names='Statut', values='Nombre', hole=0.55,
+                                  color_discrete_sequence=[C2, C3])
+                    fig3.update_layout(**pl(260), legend=dict(bgcolor='rgba(0,0,0,0)'))
+                    st.plotly_chart(fig3, use_container_width=True)
 
-            st.markdown('<div class="dash-label">Aperçu des données</div>', unsafe_allow_html=True)
-            st.dataframe(df_b.head(50), use_container_width=True, hide_index=True)
+                st.markdown('<div class="slabel">Aperçu des données</div>', unsafe_allow_html=True)
+                st.dataframe(df_f.head(50), use_container_width=True, hide_index=True)
 
     with tab2:
         df_v = load_table('voitures')
         if df_v.empty:
             st.info("Aucune donnée. Lancez un scraping d'abord.")
         else:
+            # ── Filtres ──────────────────────────────
+            st.markdown('<div class="slabel">Filtres</div>', unsafe_allow_html=True)
+            g1, g2, g3, g4 = st.columns(4)
+            with g1:
+                marques = ["Toutes"] + sorted(df_v['marque'].dropna().unique().tolist())
+                marque_sel = st.selectbox("Marque", marques)
+            with g2:
+                regions = ["Toutes"] + sorted(df_v['region'].dropna().unique().tolist())
+                region_sel = st.selectbox("Région", regions)
+            with g3:
+                boites = ["Toutes"] + sorted(df_v['boite_vitesses'].dropna().unique().tolist())
+                boite_sel = st.selectbox("Boîte", boites)
+            with g4:
+                annees_dispo = sorted(df_v['annee'].dropna().astype(int).unique().tolist())
+                if annees_dispo:
+                    annee_range = st.slider("Année", min_value=min(annees_dispo),
+                                            max_value=max(annees_dispo),
+                                            value=(min(annees_dispo), max(annees_dispo)))
+                else:
+                    annee_range = (2000, 2026)
+
+            df_vf = df_v.copy()
+            if marque_sel != "Toutes": df_vf = df_vf[df_vf['marque']        == marque_sel]
+            if region_sel != "Toutes": df_vf = df_vf[df_vf['region']        == region_sel]
+            if boite_sel  != "Toutes": df_vf = df_vf[df_vf['boite_vitesses']== boite_sel]
+            df_vf = df_vf[df_vf['annee'].between(annee_range[0], annee_range[1], inclusive='both')]
+
+            st.markdown('<div class="slabel">Indicateurs</div>', unsafe_allow_html=True)
             k1,k2,k3,k4 = st.columns(4)
-            k1.metric("Annonces", f"{len(df_v):,}")
-            k2.metric("Prix moyen (FCFA)", f"{df_v['prix'].mean():,.0f}")
-            k3.metric("Km moyen", f"{df_v['kilometrage'].mean():,.0f}")
-            k4.metric("Marques", df_v['marque'].nunique())
+            k1.metric("Annonces", f"{len(df_vf):,}")
+            k2.metric("Prix moyen (FCFA)", f"{df_vf['prix'].mean():,.0f}" if not df_vf.empty else "—")
+            k3.metric("Km moyen", f"{df_vf['kilometrage'].mean():,.0f}" if not df_vf.empty else "—")
+            k4.metric("Marques", df_vf['marque'].nunique())
 
-            # Ligne : scatter prix vs km (large) + donut boite (étroit)
-            left, right = st.columns([3,1])
-            with left:
-                st.markdown('<div class="dash-label">Prix vs Kilométrage</div>', unsafe_allow_html=True)
-                fig_sv = px.scatter(df_v, x='kilometrage', y='prix', color='boite_vitesses',
-                                    opacity=0.55, color_discrete_sequence=['#34d399','#a78bfa','#f472b6','#fb923c'])
-                fig_sv.update_layout(**pl(300),
-                    xaxis=dict(gridcolor=GRID, title='Km'),
-                    yaxis=dict(gridcolor=GRID, title='Prix FCFA'))
-                st.plotly_chart(fig_sv, use_container_width=True)
-            with right:
-                st.markdown('<div class="dash-label">Boîte</div>', unsafe_allow_html=True)
-                bv = df_v['boite_vitesses'].value_counts().reset_index()
-                bv.columns=['Type','N']
-                fig5 = px.pie(bv, names='Type', values='N', hole=0.6,
-                              color_discrete_sequence=['#34d399','#a78bfa','#f472b6'])
-                fig5.update_layout(**pl(300), legend=dict(bgcolor='rgba(0,0,0,0)',orientation='h',y=-0.1))
-                st.plotly_chart(fig5, use_container_width=True)
+            if df_vf.empty:
+                st.warning("Aucun résultat pour ces filtres.")
+            else:
+                st.markdown('<div class="slabel">Top 10 marques</div>', unsafe_allow_html=True)
+                mc = df_vf['marque'].value_counts().head(10).reset_index()
+                mc.columns=['Marque','Nombre']
+                fig4 = px.bar(mc, x='Nombre', y='Marque', orientation='h',
+                              color_discrete_sequence=[C1])
+                fig4.update_layout(**pl(300),
+                    xaxis=dict(gridcolor=GRID),
+                    yaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total ascending'))
+                st.plotly_chart(fig4, use_container_width=True)
 
-            # Top marques horizontal + histogram années
-            st.markdown('<div class="dash-label">Top 10 marques</div>', unsafe_allow_html=True)
-            mc = df_v['marque'].value_counts().head(10).reset_index()
-            mc.columns=['Marque','Nombre']
-            fig4 = px.bar(mc, x='Nombre', y='Marque', orientation='h',
-                          color_discrete_sequence=['#34d399'])
-            fig4.update_layout(**pl(280),
-                xaxis=dict(gridcolor=GRID),
-                yaxis=dict(gridcolor='rgba(0,0,0,0)', categoryorder='total ascending'))
-            st.plotly_chart(fig4, use_container_width=True)
+                cc2, cd2 = st.columns(2)
+                with cc2:
+                    st.markdown('<div class="slabel">Boîte de vitesses</div>', unsafe_allow_html=True)
+                    bv = df_vf['boite_vitesses'].value_counts().reset_index()
+                    bv.columns=['Type','Nombre']
+                    fig5 = px.pie(bv, names='Type', values='Nombre', hole=0.55,
+                                  color_discrete_sequence=[C1, C4, C2])
+                    fig5.update_layout(**pl(260), legend=dict(bgcolor='rgba(0,0,0,0)'))
+                    st.plotly_chart(fig5, use_container_width=True)
+                with cd2:
+                    st.markdown('<div class="slabel">Top 8 régions</div>', unsafe_allow_html=True)
+                    rg = df_vf['region'].value_counts().head(8).reset_index()
+                    rg.columns=['Région','Nombre']
+                    fig6 = px.bar(rg, x='Région', y='Nombre',
+                                  color_discrete_sequence=[C4])
+                    fig6.update_layout(**pl(260),
+                        xaxis=dict(gridcolor='rgba(0,0,0,0)', tickangle=-30),
+                        yaxis=dict(gridcolor=GRID))
+                    st.plotly_chart(fig6, use_container_width=True)
 
-            ca2, cb2 = st.columns(2)
-            with ca2:
-                st.markdown('<div class="dash-label">Distribution par année</div>', unsafe_allow_html=True)
-                an = df_v['annee'].dropna().astype(int)
-                fig7 = px.histogram(an, nbins=20, color_discrete_sequence=['#a78bfa'])
-                fig7.update_layout(**pl(240),
+                st.markdown('<div class="slabel">Distribution par année</div>', unsafe_allow_html=True)
+                an = df_vf['annee'].dropna().astype(int)
+                fig7 = px.histogram(an, nbins=20, color_discrete_sequence=[C2])
+                fig7.update_layout(**pl(220),
                     xaxis=dict(gridcolor='rgba(0,0,0,0)'),
                     yaxis=dict(gridcolor=GRID), showlegend=False)
                 st.plotly_chart(fig7, use_container_width=True)
-            with cb2:
-                st.markdown('<div class="dash-label">Top 8 régions</div>', unsafe_allow_html=True)
-                rg = df_v['region'].value_counts().head(8).reset_index()
-                rg.columns=['Région','Nombre']
-                fig6 = px.bar(rg, x='Région', y='Nombre',
-                              color_discrete_sequence=['#fb923c'])
-                fig6.update_layout(**pl(240),
-                    xaxis=dict(gridcolor='rgba(0,0,0,0)'),
-                    yaxis=dict(gridcolor=GRID))
-                st.plotly_chart(fig6, use_container_width=True)
 
-            st.markdown('<div class="dash-label">Aperçu des données</div>', unsafe_allow_html=True)
-            st.dataframe(df_v.head(50), use_container_width=True, hide_index=True)
+                st.markdown('<div class="slabel">Aperçu des données</div>', unsafe_allow_html=True)
+                st.dataframe(df_vf.head(50), use_container_width=True, hide_index=True)
 
-# ─────────────────────────────────────────────
-# FORMULAIRES
-# ─────────────────────────────────────────────
+# ── FORMULAIRES ───────────────────────────────
 elif page == "Formulaires":
     st.markdown("""
-    <div class="page-hero">
-        <div class="page-hero-label">Collecte primaire</div>
-        <div class="page-hero-title">Formulaires</div>
-        <div class="page-hero-desc">KoboToolbox · Google Forms</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div class="ph">
+        <div class="ph-title">Formulaires d'évaluation</div>
+        <div class="ph-desc">KoboToolbox · Google Forms</div>
+    </div>""", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2, gap="large")
     with col1:
         st.markdown("""
-        <div class="form-block">
-            <div class="form-block-num">01</div>
-            <div class="form-block-title">KoboToolbox</div>
-            <div class="form-block-desc">Formulaire d'évaluation hébergé sur KoboToolbox. Fonctionne hors ligne, idéal pour la collecte terrain. Les réponses sont centralisées en temps réel.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div class="form-card">
+            <div class="form-card-title">📋 KoboToolbox</div>
+            <div class="form-card-desc">Formulaire d'évaluation hébergé sur KoboToolbox. Fonctionne hors ligne, idéal pour la collecte terrain. Les réponses sont centralisées en temps réel.</div>
+        </div>""", unsafe_allow_html=True)
         st.link_button("Ouvrir KoboToolbox →", KOBO_URL, use_container_width=True)
-
     with col2:
         st.markdown("""
-        <div class="form-block">
-            <div class="form-block-num">02</div>
-            <div class="form-block-title">Google Forms</div>
-            <div class="form-block-desc">Formulaire d'évaluation hébergé sur Google Forms. Accessible depuis n'importe quel appareil, les réponses sont automatiquement collectées dans Google Sheets.</div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div class="form-card">
+            <div class="form-card-title">📝 Google Forms</div>
+            <div class="form-card-desc">Formulaire d'évaluation hébergé sur Google Forms. Accessible depuis n'importe quel appareil, les réponses sont automatiquement collectées dans Google Sheets.</div>
+        </div>""", unsafe_allow_html=True)
         st.link_button("Ouvrir Google Forms →", GFORMS_URL, use_container_width=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
