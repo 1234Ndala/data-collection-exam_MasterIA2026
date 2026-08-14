@@ -400,24 +400,74 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR ──────────────────────────────────
-st.sidebar.markdown("""
-<div class="sb-header">
-    <div class="sb-title">📊 Data Collection</div>
-    <div class="sb-sub">Master IA · DIT Dakar · 2026</div>
+# ── CACHE SIDEBAR + NAVBAR ───────────────────
+st.markdown("""
+<style>
+[data-testid="stSidebar"]      { display: none !important; }
+[data-testid="collapsedControl"]{ display: none !important; }
+
+.navbar {
+    background: #1a2a4a;
+    margin: -1rem -1rem 0 -1rem;
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid #2e7bc4;
+}
+.navbar-left  { display: flex; align-items: center; gap: 16px; }
+.navbar-logo  { font-size: 17px; font-weight: 800; color: #fff; }
+.navbar-meta  { font-size: 11px; color: #5a7aaa; text-transform: uppercase; letter-spacing: 0.08em; }
+.navbar-right { display: flex; gap: 16px; }
+.navbar-chip  { font-size: 12px; color: #a8c8e8; }
+.navbar-chip b { color: #fff; }
+
+/* Style des onglets natifs Streamlit */
+div[data-testid="stTabs"] > div:first-child {
+    background: #1a2a4a;
+    margin: 0 -1rem;
+    padding: 0 20px;
+    border-bottom: none !important;
+    gap: 0 !important;
+}
+div[data-testid="stTabs"] button[role="tab"] {
+    font-family: 'Open Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #7a9cc4 !important;
+    padding: 14px 20px !important;
+    border-radius: 0 !important;
+    border-bottom: 3px solid transparent !important;
+    background: transparent !important;
+}
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    color: #ffffff !important;
+    border-bottom: 3px solid #ffffff !important;
+    background: rgba(255,255,255,0.06) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class="navbar">
+    <div class="navbar-left">
+        <span class="navbar-logo">📊 Data Collection</span>
+        <span class="navbar-meta">Master IA · DIT Dakar · 2026</span>
+    </div>
+    <div class="navbar-right">
+        <span class="navbar-chip">📚 <b>{n_books:,}</b> books</span>
+        <span class="navbar-chip">🚗 <b>{n_voitures:,}</b> voitures</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-PAGES = ["Accueil", "Scraping Live", "Téléchargement CSV", "Dashboard", "Formulaires"]
-page  = st.sidebar.radio("", PAGES, label_visibility="collapsed")
-
-st.sidebar.markdown("<hr class='sb-divider'>", unsafe_allow_html=True)
-st.sidebar.markdown(f"""
-<div class="sb-stat-label">Books en base</div>
-<div class="sb-stat-val">{n_books:,}</div>
-<div class="sb-stat-label">Voitures en base</div>
-<div class="sb-stat-val">{n_voitures:,}</div>
-""", unsafe_allow_html=True)
+tab_accueil, tab_scraping, tab_csv, tab_dashboard, tab_forms = st.tabs([
+    "🏠  Accueil",
+    "⚡  Scraping Live",
+    "📥  Téléchargement CSV",
+    "📊  Dashboard",
+    "📋  Formulaires"
+])
 
 # ── PLOTLY helper ─────────────────────────────
 def pl(h=300):
