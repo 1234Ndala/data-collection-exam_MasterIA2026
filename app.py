@@ -355,28 +355,29 @@ with tab_accueil:
 with tab_scraping:
     st.markdown('<div class="page-body">', unsafe_allow_html=True)
     st.markdown(
-        """<div class="section-head"><i class="fa-solid fa-bolt"></i> Lancer une collecte</div>
-        <div class="scrape-panel">""",
+        """<div class="section-head"><i class="fa-solid fa-bolt"></i> Lancer une collecte</div>""",
         unsafe_allow_html=True
     )
-    source = st.selectbox("Source", ["Books to Scrape", "Gaaraas"])
-    if source == "Books to Scrape":
-        nb_pages = st.slider("Nombre de pages", 1, 50, 5)
-        st.caption(f"~{nb_pages*20} livres estimes")
-        if st.button("Lancer le scraping", type="primary"):
-            pb = st.progress(0); txt = st.empty()
-            with st.spinner("Scraping en cours..."):
-                n, err = scrape_books(nb_pages, pb, txt)
-            st.success(f"{n} livres inseres ({err} erreurs).")
-    else:
-        nb_pages = st.slider("Nombre de pages", 1, 100, 5)
-        st.caption(f"~{nb_pages*15} annonces estimees")
-        if st.button("Lancer le scraping", type="primary"):
-            pb = st.progress(0); txt = st.empty()
-            with st.spinner("Scraping en cours..."):
-                n, err = scrape_gaaraas(nb_pages, pb, txt)
-            st.success(f"{n} annonces inserees ({err} erreurs).")
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    col_s, _ = st.columns([1, 1])
+    with col_s:
+        source = st.selectbox("Source", ["Books to Scrape", "Gaaraas"])
+        if source == "Books to Scrape":
+            nb_pages = st.slider("Nombre de pages", 1, 50, 5)
+            st.caption(f"~{nb_pages*20} livres estimes")
+            if st.button("Lancer le scraping", type="primary"):
+                pb = st.progress(0); txt = st.empty()
+                with st.spinner("Scraping en cours..."):
+                    n, err = scrape_books(nb_pages, pb, txt)
+                st.success(f"{n} livres inseres ({err} erreurs).")
+        else:
+            nb_pages = st.slider("Nombre de pages", 1, 100, 5)
+            st.caption(f"~{nb_pages*15} annonces estimees")
+            if st.button("Lancer le scraping", type="primary"):
+                pb = st.progress(0); txt = st.empty()
+                with st.spinner("Scraping en cours..."):
+                    n, err = scrape_gaaraas(nb_pages, pb, txt)
+                st.success(f"{n} annonces inserees ({err} erreurs).")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ── TELECHARGEMENT CSV ────────────────────────
 with tab_csv:
@@ -438,7 +439,7 @@ with tab_dashboard:
                 """,
                 unsafe_allow_html=True
             )
-            st.markdown('<div class="chart-panel"><div class="filter-label">Filtrer les donnees</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-head"><i class="fa-solid fa-filter"></i> Filtrer les donnees</div>', unsafe_allow_html=True)
             f1, f2, f3 = st.columns(3)
             with f1:
                 cats = ["Toutes"] + sorted(df_b["categorie"].dropna().unique().tolist())
@@ -502,7 +503,7 @@ with tab_dashboard:
                 """,
                 unsafe_allow_html=True
             )
-            st.markdown('<div class="chart-panel"><div class="filter-label">Filtrer les donnees</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-head"><i class="fa-solid fa-filter"></i> Filtrer les donnees</div>', unsafe_allow_html=True)
             g1, g2, g3, g4 = st.columns(4)
             with g1:
                 marques = ["Toutes"] + sorted(df_v["marque"].dropna().unique().tolist())
