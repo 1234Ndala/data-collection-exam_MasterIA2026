@@ -248,6 +248,46 @@ st.markdown(
     .form-card-title { font-size: 15px; font-weight: 800; color: #1a2a4a; margin-bottom: 10px; display:flex; align-items:center; gap:10px; }
     .form-card-title i { color: #2e7bc4; font-size: 18px; }
     .form-card-desc { font-size: 13px; color: #7f8c8d; line-height: 1.65; margin-bottom: 20px; }
+
+    /* Widgets Streamlit natifs */
+    div[data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        border: 1.5px solid #c5d3e8 !important;
+        border-radius: 6px !important;
+        font-size: 13px !important;
+        color: #1a2a4a !important;
+        box-shadow: none !important;
+    }
+    div[data-baseweb="select"] > div:focus-within {
+        border-color: #2e7bc4 !important;
+        box-shadow: 0 0 0 2px rgba(46,123,196,0.15) !important;
+    }
+    div[data-baseweb="slider"] div[role="slider"] {
+        background-color: #2e7bc4 !important;
+        border-color: #2e7bc4 !important;
+    }
+    div[data-testid="stSlider"] div[data-baseweb="slider"] div div div div {
+        background: #2e7bc4 !important;
+    }
+    div[data-testid="stButton"] > button[kind="primary"] {
+        background-color: #2e7bc4 !important;
+        border-color: #2e7bc4 !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+        border-radius: 6px !important;
+        padding: 8px 20px !important;
+    }
+    div[data-testid="stButton"] > button[kind="primary"]:hover {
+        background-color: #1a5fa0 !important;
+        border-color: #1a5fa0 !important;
+    }
+    label[data-testid="stWidgetLabel"] p {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: #1a2a4a !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+    }
     </style>
     """,
     unsafe_allow_html=True
