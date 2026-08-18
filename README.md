@@ -1,4 +1,4 @@
-# Projet Data Collection — Examen
+# Projet Data Collection, Examen
 
 Web scraping, nettoyage de données et déploiement d'une application Streamlit.
 
